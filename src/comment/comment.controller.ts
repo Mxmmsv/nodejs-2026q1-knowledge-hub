@@ -6,10 +6,10 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
+import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -50,9 +50,7 @@ export class CommentController {
   @ApiBadRequestResponse()
   @ApiNotFoundResponse()
   @Get(':id')
-  getById(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ): CommentResponseDto {
+  getById(@Param('id', UuidParamPipe) id: string): CommentResponseDto {
     return toCommentResponse(this.commentService.getByIdOrThrow(id));
   }
 
@@ -71,7 +69,7 @@ export class CommentController {
   @ApiNotFoundResponse()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string): void {
+  delete(@Param('id', UuidParamPipe) id: string): void {
     this.commentService.delete(id);
   }
 }

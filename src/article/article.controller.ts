@@ -6,11 +6,11 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
   Post,
   Put,
   Query,
 } from '@nestjs/common';
+import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -51,9 +51,7 @@ export class ArticleController {
   @ApiBadRequestResponse()
   @ApiNotFoundResponse()
   @Get(':id')
-  getById(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ): ArticleResponseDto {
+  getById(@Param('id', UuidParamPipe) id: string): ArticleResponseDto {
     return toArticleResponse(this.articleService.getByIdOrThrow(id));
   }
 
@@ -73,7 +71,7 @@ export class ArticleController {
   @ApiNotFoundResponse()
   @Put(':id')
   update(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param('id', UuidParamPipe) id: string,
     @Body() updateArticleDto: UpdateArticleDto,
   ): ArticleResponseDto {
     return toArticleResponse(this.articleService.update(id, updateArticleDto));
@@ -84,9 +82,7 @@ export class ArticleController {
   @ApiNotFoundResponse()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ): void {
+  delete(@Param('id', UuidParamPipe) id: string): void {
     this.articleService.delete(id);
   }
 }

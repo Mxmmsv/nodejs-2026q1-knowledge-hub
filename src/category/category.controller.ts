@@ -6,10 +6,10 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseUUIDPipe,
   Post,
   Put,
 } from '@nestjs/common';
+import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -46,9 +46,7 @@ export class CategoryController {
   @ApiBadRequestResponse()
   @ApiNotFoundResponse()
   @Get(':id')
-  getById(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ): CategoryResponseDto {
+  getById(@Param('id', UuidParamPipe) id: string): CategoryResponseDto {
     return toCategoryResponse(this.categoryService.getByIdOrThrow(id));
   }
 
@@ -70,7 +68,7 @@ export class CategoryController {
   @ApiNotFoundResponse()
   @Put(':id')
   update(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Param('id', UuidParamPipe) id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
   ): CategoryResponseDto {
     return toCategoryResponse(
@@ -83,9 +81,7 @@ export class CategoryController {
   @ApiNotFoundResponse()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(
-    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
-  ): void {
+  delete(@Param('id', UuidParamPipe) id: string): void {
     this.categoryService.delete(id);
   }
 }
