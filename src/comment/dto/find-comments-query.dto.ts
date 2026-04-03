@@ -1,0 +1,10 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsUUID } from 'class-validator';
+
+export class FindCommentsQueryDto {
+  @ApiProperty({
+    format: 'uuid',
+  })
+  @IsUUID('4')
+  articleId: string;
+}

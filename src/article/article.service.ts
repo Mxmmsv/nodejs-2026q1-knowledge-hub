@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { ArticleStatus } from '../common/enums/article-status.enum';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
@@ -16,6 +21,7 @@ import { ArticleRepository } from './repositories/article.repository';
 @Injectable()
 export class ArticleService {
   constructor(
+    @Inject(forwardRef(() => CommentService))
     private readonly commentService: CommentService,
     @Inject(ArticleRepository)
     private readonly articleRepository: ArticleRepository,
