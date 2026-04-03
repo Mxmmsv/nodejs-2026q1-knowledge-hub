@@ -32,4 +32,12 @@ export class CommentService {
       }
     }
   }
+
+  removeByArticleId(articleId: string): void {
+    for (const comment of this.commentRepository.findAll()) {
+      if (comment.articleId === articleId) {
+        this.commentRepository.remove(comment.id);
+      }
+    }
+  }
 }
