@@ -39,4 +39,18 @@ export class ArticleService {
       });
     }
   }
+
+  clearCategoryIdByCategoryId(categoryId: string): void {
+    for (const article of this.articleRepository.findAll()) {
+      if (article.categoryId !== categoryId) {
+        continue;
+      }
+
+      this.articleRepository.save({
+        ...article,
+        categoryId: null,
+        updatedAt: getCurrentTimestamp(),
+      });
+    }
+  }
 }

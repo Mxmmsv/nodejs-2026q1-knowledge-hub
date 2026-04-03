@@ -1,4 +1,5 @@
 export const AppErrorMessages = {
+  CATEGORY_NOT_FOUND: 'Category not found',
   INVALID_UUID: 'Invalid UUID',
   RESOURCE_NOT_FOUND: 'Resource not found',
   USER_NOT_FOUND: 'User not found',
