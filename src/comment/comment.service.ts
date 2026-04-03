@@ -24,4 +24,12 @@ export class CommentService {
   remove(id: string): boolean {
     return this.commentRepository.remove(id);
   }
+
+  removeByAuthorId(authorId: string): void {
+    for (const comment of this.commentRepository.findAll()) {
+      if (comment.authorId === authorId) {
+        this.commentRepository.remove(comment.id);
+      }
+    }
+  }
 }

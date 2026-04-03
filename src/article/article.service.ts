@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
 import { Article } from './models/article.model';
 import { ArticleRepository } from './repositories/article.repository';
 
@@ -23,5 +24,19 @@ export class ArticleService {
 
   remove(id: string): boolean {
     return this.articleRepository.remove(id);
+  }
+
+  clearAuthorIdByUserId(userId: string): void {
+    for (const article of this.articleRepository.findAll()) {
+      if (article.authorId !== userId) {
+        continue;
+      }
+
+      this.articleRepository.save({
+        ...article,
+        authorId: null,
+        updatedAt: getCurrentTimestamp(),
+      });
+    }
   }
 }
