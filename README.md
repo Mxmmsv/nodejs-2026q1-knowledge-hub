@@ -5,21 +5,24 @@
 - Git - [Download & Install Git](https://git-scm.com/downloads).
 - Node.js - [Download & Install Node.js](https://nodejs.org/en/download/) and the npm package manager.
 
-## Downloading
+## Installing
 
+```bash
+git clone https://github.com/Mxmmsv/nodejs-2026q1-knowledge-hub mxmmsv-nodejs-2026q1-knowledge-hub
 ```
-git clone {repository URL}
+```bash
+cd mxmmsv-nodejs-2026q1-knowledge-hub
 ```
-
-## Installing NPM modules
-
+```bash
+git switch develop
 ```
+```bash
+cp .env.example .env
+```
+```bash
 npm install
 ```
-
-## Running application
-
-```
+```bash
 npm start
 ```
 
