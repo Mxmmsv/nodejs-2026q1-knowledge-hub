@@ -1,12 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  ArrayUnique,
-  IsArray,
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { ArrayUnique, IsArray, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { ArticleStatus } from '../../common/enums/article-status.enum';
 
 export class UpdateArticleDto {

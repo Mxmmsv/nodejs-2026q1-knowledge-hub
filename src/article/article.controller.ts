@@ -1,15 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import {
   ApiBadRequestResponse,
@@ -19,12 +8,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  ArticleResponseDto,
-  CreateArticleDto,
-  FindArticlesQueryDto,
-  UpdateArticleDto,
-} from './dto';
+import { ArticleResponseDto, CreateArticleDto, FindArticlesQueryDto, UpdateArticleDto } from './dto';
 import { ArticleService } from './article.service';
 import { toArticleResponse } from './utils/to-article-response';
 
@@ -39,9 +23,7 @@ export class ArticleController {
   })
   @ApiBadRequestResponse()
   @Get()
-  getAll(
-    @Query() query: FindArticlesQueryDto,
-  ): ArticleResponseDto[] {
+  getAll(@Query() query: FindArticlesQueryDto): ArticleResponseDto[] {
     return this.articleService.findAll(query).map(toArticleResponse);
   }
 
@@ -70,10 +52,7 @@ export class ArticleController {
   @ApiBadRequestResponse()
   @ApiNotFoundResponse()
   @Put(':id')
-  update(
-    @Param('id', UuidParamPipe) id: string,
-    @Body() updateArticleDto: UpdateArticleDto,
-  ): ArticleResponseDto {
+  update(@Param('id', UuidParamPipe) id: string, @Body() updateArticleDto: UpdateArticleDto): ArticleResponseDto {
     return toArticleResponse(this.articleService.update(id, updateArticleDto));
   }
 

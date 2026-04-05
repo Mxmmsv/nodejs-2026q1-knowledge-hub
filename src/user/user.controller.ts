@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import {
   ApiBadRequestResponse,
@@ -19,11 +9,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  CreateUserDto,
-  UpdatePasswordDto,
-  UserResponseDto,
-} from './dto';
+import { CreateUserDto, UpdatePasswordDto, UserResponseDto } from './dto';
 import { UserService } from './user.service';
 import { toUserResponse } from './utils/to-user-response';
 
@@ -71,9 +57,7 @@ export class UserController {
     @Param('id', UuidParamPipe) id: string,
     @Body() updatePasswordDto: UpdatePasswordDto,
   ): UserResponseDto {
-    return toUserResponse(
-      this.userService.updatePassword(id, updatePasswordDto),
-    );
+    return toUserResponse(this.userService.updatePassword(id, updatePasswordDto));
   }
 
   @ApiNoContentResponse()

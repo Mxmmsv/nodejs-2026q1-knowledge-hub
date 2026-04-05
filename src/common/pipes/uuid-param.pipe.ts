@@ -6,8 +6,7 @@ export class UuidParamPipe extends ParseUUIDPipe {
   constructor() {
     super({
       version: '4',
-      exceptionFactory: () =>
-        new BadRequestException(AppErrorMessages.INVALID_UUID),
+      exceptionFactory: () => new BadRequestException(AppErrorMessages.INVALID_UUID),
     });
   }
 }

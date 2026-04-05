@@ -4,6 +4,4 @@ import { Comment } from '../models/comment.model';
 import { CommentRepository } from './comment.repository';
 
 @Injectable()
-export class InMemoryCommentRepository
-  extends InMemoryCrudRepository<Comment>
-  implements CommentRepository {}
+export class InMemoryCommentRepository extends InMemoryCrudRepository<Comment> implements CommentRepository {}

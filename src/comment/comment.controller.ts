@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import {
   ApiBadRequestResponse,
@@ -19,11 +9,7 @@ import {
   ApiTags,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import {
-  CommentResponseDto,
-  CreateCommentDto,
-  FindCommentsQueryDto,
-} from './dto';
+import { CommentResponseDto, CreateCommentDto, FindCommentsQueryDto } from './dto';
 import { CommentService } from './comment.service';
 import { toCommentResponse } from './utils/to-comment-response';
 
@@ -39,9 +25,7 @@ export class CommentController {
   @ApiBadRequestResponse()
   @Get()
   getByArticle(@Query() query: FindCommentsQueryDto): CommentResponseDto[] {
-    return this.commentService
-      .findAllByArticleId(query.articleId)
-      .map(toCommentResponse);
+    return this.commentService.findAllByArticleId(query.articleId).map(toCommentResponse);
   }
 
   @ApiOkResponse({

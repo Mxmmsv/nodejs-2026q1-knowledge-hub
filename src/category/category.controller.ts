@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import {
   ApiBadRequestResponse,
@@ -18,11 +8,7 @@ import {
   ApiOkResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  CategoryResponseDto,
-  CreateCategoryDto,
-  UpdateCategoryDto,
-} from './dto';
+import { CategoryResponseDto, CreateCategoryDto, UpdateCategoryDto } from './dto';
 import { CategoryService } from './category.service';
 import { toCategoryResponse } from './utils/to-category-response';
 
@@ -55,9 +41,7 @@ export class CategoryController {
   })
   @ApiBadRequestResponse()
   @Post()
-  create(
-    @Body() createCategoryDto: CreateCategoryDto,
-  ): CategoryResponseDto {
+  create(@Body() createCategoryDto: CreateCategoryDto): CategoryResponseDto {
     return toCategoryResponse(this.categoryService.create(createCategoryDto));
   }
 
@@ -67,13 +51,8 @@ export class CategoryController {
   @ApiBadRequestResponse()
   @ApiNotFoundResponse()
   @Put(':id')
-  update(
-    @Param('id', UuidParamPipe) id: string,
-    @Body() updateCategoryDto: UpdateCategoryDto,
-  ): CategoryResponseDto {
-    return toCategoryResponse(
-      this.categoryService.update(id, updateCategoryDto),
-    );
+  update(@Param('id', UuidParamPipe) id: string, @Body() updateCategoryDto: UpdateCategoryDto): CategoryResponseDto {
+    return toCategoryResponse(this.categoryService.update(id, updateCategoryDto));
   }
 
   @ApiNoContentResponse()

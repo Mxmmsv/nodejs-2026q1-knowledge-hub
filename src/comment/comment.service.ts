@@ -1,10 +1,4 @@
-import {
-  forwardRef,
-  Inject,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { forwardRef, Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
@@ -23,9 +17,7 @@ export class CommentService {
   ) {}
 
   findAllByArticleId(articleId: string): Comment[] {
-    return this.commentRepository
-      .findAll()
-      .filter((comment) => comment.articleId === articleId);
+    return this.commentRepository.findAll().filter((comment) => comment.articleId === articleId);
   }
 
   findById(id: string): Comment | undefined {
@@ -44,9 +36,7 @@ export class CommentService {
 
   create(createCommentDto: CreateCommentDto): Comment {
     if (!this.articleService.findById(createCommentDto.articleId)) {
-      throw new UnprocessableEntityException(
-        AppErrorMessages.ARTICLE_NOT_FOUND,
-      );
+      throw new UnprocessableEntityException(AppErrorMessages.ARTICLE_NOT_FOUND);
     }
 
     const comment: Comment = {

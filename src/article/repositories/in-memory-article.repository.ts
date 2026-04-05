@@ -4,6 +4,4 @@ import { Article } from '../models/article.model';
 import { ArticleRepository } from './article.repository';
 
 @Injectable()
-export class InMemoryArticleRepository
-  extends InMemoryCrudRepository<Article>
-  implements ArticleRepository {}
+export class InMemoryArticleRepository extends InMemoryCrudRepository<Article> implements ArticleRepository {}

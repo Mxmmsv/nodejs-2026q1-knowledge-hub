@@ -4,6 +4,4 @@ import { Category } from '../models/category.model';
 import { CategoryRepository } from './category.repository';
 
 @Injectable()
-export class InMemoryCategoryRepository
-  extends InMemoryCrudRepository<Category>
-  implements CategoryRepository {}
+export class InMemoryCategoryRepository extends InMemoryCrudRepository<Category> implements CategoryRepository {}

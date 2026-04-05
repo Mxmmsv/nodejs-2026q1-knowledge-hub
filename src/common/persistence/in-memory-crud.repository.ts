@@ -1,9 +1,7 @@
 import { CrudRepository } from './crud.repository';
 import { EntityWithId } from './entity-with-id.interface';
 
-export abstract class InMemoryCrudRepository<TEntity extends EntityWithId>
-  implements CrudRepository<TEntity>
-{
+export abstract class InMemoryCrudRepository<TEntity extends EntityWithId> implements CrudRepository<TEntity> {
   protected readonly items = new Map<string, TEntity>();
 
   findAll(): TEntity[] {

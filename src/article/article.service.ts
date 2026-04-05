@@ -1,20 +1,11 @@
-import {
-  forwardRef,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { ArticleStatus } from '../common/enums/article-status.enum';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
 import { CommentService } from '../comment/comment.service';
-import {
-  CreateArticleDto,
-  FindArticlesQueryDto,
-  UpdateArticleDto,
-} from './dto';
+import { CreateArticleDto, FindArticlesQueryDto, UpdateArticleDto } from './dto';
 import { Article } from './models/article.model';
 import { ArticleRepository } from './repositories/article.repository';
 
@@ -80,10 +71,7 @@ export class ArticleService {
     return this.articleRepository.save({
       ...article,
       ...updateArticleDto,
-      categoryId:
-        updateArticleDto.categoryId === undefined
-          ? article.categoryId
-          : updateArticleDto.categoryId,
+      categoryId: updateArticleDto.categoryId === undefined ? article.categoryId : updateArticleDto.categoryId,
       tags: updateArticleDto.tags ?? article.tags,
       updatedAt: getCurrentTimestamp(),
     });
