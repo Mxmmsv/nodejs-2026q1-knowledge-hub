@@ -22,10 +22,7 @@ const getUserTokenByRole = async (
 
   // If role is not 'viewer' (default), update user role via admin
   if (role !== 'viewer') {
-    const updateRoleResponse = await request
-      .put(usersRoutes.update(userId))
-      .set(adminHeaders)
-      .send({ role });
+    const updateRoleResponse = await request.put(usersRoutes.update(userId)).set(adminHeaders).send({ role });
 
     if (updateRoleResponse.statusCode >= 400) {
       throw new Error(`Failed to set role ${role} for user ${userId}`);

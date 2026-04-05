@@ -4,10 +4,4 @@ import removeTokenUser from './removeTokenUser';
 import shouldAuthorizationBeTested from './shouldAuthorizationBeTested';
 import generateRefreshToken from './tokens';
 
-export {
-  getTokenAndUserId,
-  getUserTokenByRole,
-  shouldAuthorizationBeTested,
-  removeTokenUser,
-  generateRefreshToken,
-};
+export { getTokenAndUserId, getUserTokenByRole, shouldAuthorizationBeTested, removeTokenUser, generateRefreshToken };
