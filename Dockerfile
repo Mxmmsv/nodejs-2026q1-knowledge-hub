@@ -13,7 +13,9 @@ FROM node:24-alpine AS production
 ENV NODE_ENV=production
 WORKDIR /home/node/app
 
-RUN mkdir -p /home/node/app && chown node:node /home/node/app
+RUN apk add --no-cache curl \
+    && mkdir -p /home/node/app \
+    && chown node:node /home/node/app
 
 USER node
 

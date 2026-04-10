@@ -9,6 +9,8 @@
     "node": ">=22.14.0"
   },
   "scripts": {
+    "docker:build": "docker build -t mxmmsv-knowledge-hub .",
+    "docker:start": "docker run --rm -p 4000:4000 --env-file .env mxmmsv-knowledge-hub",
     "prebuild": "rimraf dist",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
