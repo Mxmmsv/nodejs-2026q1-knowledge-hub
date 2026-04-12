@@ -3,6 +3,7 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 COPY . .
@@ -20,6 +21,7 @@ RUN apk add --no-cache curl \
 USER node
 
 COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node prisma ./prisma
 RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=build --chown=node:node /app/dist ./dist

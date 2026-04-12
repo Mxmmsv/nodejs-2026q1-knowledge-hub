@@ -179,7 +179,8 @@ export class ArticleController {
       }
     }
 
-    const { authorId: _ignoredAuthorId, ...safeUpdateArticleDto } = updateArticleDto;
+    const safeUpdateArticleDto: UpdateArticleDto = { ...updateArticleDto };
+    delete safeUpdateArticleDto.authorId;
 
     return toArticleResponse(await this.articleService.update(id, safeUpdateArticleDto));
   }
