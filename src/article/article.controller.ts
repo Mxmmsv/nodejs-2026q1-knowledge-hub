@@ -38,8 +38,8 @@ export class ArticleController {
     }),
   )
   @Get()
-  getAll(@Query() query: FindArticlesQueryDto): ArticleResponseDto[] {
-    return this.articleService.findAll(query).map(toArticleResponse);
+  async getAll(@Query() query: FindArticlesQueryDto): Promise<ArticleResponseDto[]> {
+    return (await this.articleService.findAll(query)).map(toArticleResponse);
   }
 
   @ApiOkResponse({
@@ -67,8 +67,8 @@ export class ArticleController {
     }),
   )
   @Get(':id')
-  getById(@Param('id', UuidParamPipe) id: string): ArticleResponseDto {
-    return toArticleResponse(this.articleService.getByIdOrThrow(id));
+  async getById(@Param('id', UuidParamPipe) id: string): Promise<ArticleResponseDto> {
+    return toArticleResponse(await this.articleService.getByIdOrThrow(id));
   }
 
   @ApiCreatedResponse({
@@ -91,8 +91,8 @@ export class ArticleController {
     }),
   )
   @Post()
-  create(@Body() createArticleDto: CreateArticleDto): ArticleResponseDto {
-    return toArticleResponse(this.articleService.create(createArticleDto));
+  async create(@Body() createArticleDto: CreateArticleDto): Promise<ArticleResponseDto> {
+    return toArticleResponse(await this.articleService.create(createArticleDto));
   }
 
   @ApiOkResponse({
@@ -120,8 +120,11 @@ export class ArticleController {
     }),
   )
   @Put(':id')
-  update(@Param('id', UuidParamPipe) id: string, @Body() updateArticleDto: UpdateArticleDto): ArticleResponseDto {
-    return toArticleResponse(this.articleService.update(id, updateArticleDto));
+  async update(
+    @Param('id', UuidParamPipe) id: string,
+    @Body() updateArticleDto: UpdateArticleDto,
+  ): Promise<ArticleResponseDto> {
+    return toArticleResponse(await this.articleService.update(id, updateArticleDto));
   }
 
   @ApiNoContentResponse({ description: 'Returns no content if the record is found and deleted.' })
@@ -147,7 +150,7 @@ export class ArticleController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): void {
-    this.articleService.delete(id);
+  delete(@Param('id', UuidParamPipe) id: string): Promise<void> {
+    return this.articleService.delete(id);
   }
 }

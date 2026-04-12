@@ -11,12 +11,11 @@ import { ArticleRepository } from './repositories/article.repository';
   controllers: [ArticleController],
   providers: [
     ArticleService,
-    PrismaArticleRepository,
     {
       provide: ArticleRepository,
-      useClass: InMemoryArticleRepository,
+      useClass: PrismaArticleRepository,
     },
   ],
-  exports: [ArticleService, ArticleRepository, PrismaArticleRepository],
+  exports: [ArticleService, ArticleRepository],
 })
 export class ArticleModule {}

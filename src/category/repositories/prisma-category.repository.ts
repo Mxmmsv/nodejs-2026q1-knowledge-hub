@@ -2,10 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toCategoryModel } from '../../prisma/mappers/prisma-record.mappers';
 import { Category } from '../models/category.model';
+import { CategoryRepository } from './category.repository';
 
 @Injectable()
-export class PrismaCategoryRepository {
-  constructor(private readonly prisma: PrismaService) {}
+export class PrismaCategoryRepository extends CategoryRepository {
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
 
   async findAll(): Promise<Category[]> {
     const categories = await this.prisma.category.findMany({

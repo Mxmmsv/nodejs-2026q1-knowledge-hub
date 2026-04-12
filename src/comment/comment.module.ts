@@ -11,12 +11,11 @@ import { CommentRepository } from './repositories/comment.repository';
   controllers: [CommentController],
   providers: [
     CommentService,
-    PrismaCommentRepository,
     {
       provide: CommentRepository,
-      useClass: InMemoryCommentRepository,
+      useClass: PrismaCommentRepository,
     },
   ],
-  exports: [CommentService, CommentRepository, PrismaCommentRepository],
+  exports: [CommentService, CommentRepository],
 })
 export class CommentModule {}

@@ -2,10 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toCommentModel } from '../../prisma/mappers/prisma-record.mappers';
 import { Comment } from '../models/comment.model';
+import { CommentRepository } from './comment.repository';
 
 @Injectable()
-export class PrismaCommentRepository {
-  constructor(private readonly prisma: PrismaService) {}
+export class PrismaCommentRepository extends CommentRepository {
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
 
   async findAll(): Promise<Comment[]> {
     const comments = await this.prisma.comment.findMany({

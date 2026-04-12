@@ -19,16 +19,16 @@ export class UserService {
     private readonly userRepository: UserRepository,
   ) {}
 
-  findAll(): User[] {
+  async findAll(): Promise<User[]> {
     return this.userRepository.findAll();
   }
 
-  findById(id: string): User | undefined {
+  async findById(id: string): Promise<User | undefined> {
     return this.userRepository.findById(id);
   }
 
-  getByIdOrThrow(id: string): User {
-    const user = this.userRepository.findById(id);
+  async getByIdOrThrow(id: string): Promise<User> {
+    const user = await this.userRepository.findById(id);
 
     if (!user) {
       throw new NotFoundException(AppErrorMessages.USER_NOT_FOUND);
@@ -37,7 +37,7 @@ export class UserService {
     return user;
   }
 
-  create(createUserDto: CreateUserDto): User {
+  async create(createUserDto: CreateUserDto): Promise<User> {
     const user: User = {
       id: createEntityId(),
       login: createUserDto.login,
@@ -49,8 +49,8 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  updatePassword(id: string, updatePasswordDto: UpdatePasswordDto): User {
-    const user = this.getByIdOrThrow(id);
+  async updatePassword(id: string, updatePasswordDto: UpdatePasswordDto): Promise<User> {
+    const user = await this.getByIdOrThrow(id);
 
     if (user.password !== updatePasswordDto.oldPassword) {
       throw new ForbiddenException(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH);
@@ -63,11 +63,11 @@ export class UserService {
     });
   }
 
-  delete(id: string): void {
-    this.getByIdOrThrow(id);
+  async delete(id: string): Promise<void> {
+    await this.getByIdOrThrow(id);
 
-    this.articleService.clearAuthorIdByUserId(id);
-    this.commentService.removeByAuthorId(id);
-    this.userRepository.remove(id);
+    await this.articleService.clearAuthorIdByUserId(id);
+    await this.commentService.removeByAuthorId(id);
+    await this.userRepository.remove(id);
   }
 }

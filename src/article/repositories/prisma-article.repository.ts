@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { toPrismaArticleStatus } from '../../prisma/mappers/prisma-enum.mappers';
 import { toArticleModel } from '../../prisma/mappers/prisma-record.mappers';
 import { Article } from '../models/article.model';
+import { ArticleRepository } from './article.repository';
 
 const articleInclude = {
   tags: {
@@ -20,8 +21,10 @@ const toArticleTagWrites = (tags: string[]) => ({
 });
 
 @Injectable()
-export class PrismaArticleRepository {
-  constructor(private readonly prisma: PrismaService) {}
+export class PrismaArticleRepository extends ArticleRepository {
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
 
   async findAll(): Promise<Article[]> {
     const articles = await this.prisma.article.findMany({

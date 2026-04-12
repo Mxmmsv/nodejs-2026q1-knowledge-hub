@@ -14,16 +14,16 @@ export class CategoryService {
     private readonly categoryRepository: CategoryRepository,
   ) {}
 
-  findAll(): Category[] {
+  async findAll(): Promise<Category[]> {
     return this.categoryRepository.findAll();
   }
 
-  findById(id: string): Category | undefined {
+  async findById(id: string): Promise<Category | undefined> {
     return this.categoryRepository.findById(id);
   }
 
-  getByIdOrThrow(id: string): Category {
-    const category = this.categoryRepository.findById(id);
+  async getByIdOrThrow(id: string): Promise<Category> {
+    const category = await this.categoryRepository.findById(id);
 
     if (!category) {
       throw new NotFoundException(AppErrorMessages.CATEGORY_NOT_FOUND);
@@ -32,7 +32,7 @@ export class CategoryService {
     return category;
   }
 
-  create(createCategoryDto: CreateCategoryDto): Category {
+  async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
     const category: Category = {
       id: createEntityId(),
       name: createCategoryDto.name,
@@ -42,8 +42,8 @@ export class CategoryService {
     return this.categoryRepository.save(category);
   }
 
-  update(id: string, updateCategoryDto: UpdateCategoryDto): Category {
-    this.getByIdOrThrow(id);
+  async update(id: string, updateCategoryDto: UpdateCategoryDto): Promise<Category> {
+    await this.getByIdOrThrow(id);
 
     return this.categoryRepository.save({
       id,
@@ -52,10 +52,10 @@ export class CategoryService {
     });
   }
 
-  delete(id: string): void {
-    this.getByIdOrThrow(id);
+  async delete(id: string): Promise<void> {
+    await this.getByIdOrThrow(id);
 
-    this.articleService.clearCategoryIdByCategoryId(id);
-    this.categoryRepository.remove(id);
+    await this.articleService.clearCategoryIdByCategoryId(id);
+    await this.categoryRepository.remove(id);
   }
 }

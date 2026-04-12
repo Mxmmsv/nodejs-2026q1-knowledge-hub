@@ -3,10 +3,13 @@ import { User } from '../models/user.model';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toUserModel } from '../../prisma/mappers/prisma-record.mappers';
 import { toPrismaUserRole } from '../../prisma/mappers/prisma-enum.mappers';
+import { UserRepository } from './user.repository';
 
 @Injectable()
-export class PrismaUserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+export class PrismaUserRepository extends UserRepository {
+  constructor(private readonly prisma: PrismaService) {
+    super();
+  }
 
   async findAll(): Promise<User[]> {
     const users = await this.prisma.user.findMany({

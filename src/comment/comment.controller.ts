@@ -38,8 +38,8 @@ export class CommentController {
     }),
   )
   @Get()
-  getByArticle(@Query() query: FindCommentsQueryDto): CommentResponseDto[] {
-    return this.commentService.findAllByArticleId(query.articleId).map(toCommentResponse);
+  async getByArticle(@Query() query: FindCommentsQueryDto): Promise<CommentResponseDto[]> {
+    return (await this.commentService.findAllByArticleId(query.articleId)).map(toCommentResponse);
   }
 
   @ApiOkResponse({
@@ -67,8 +67,8 @@ export class CommentController {
     }),
   )
   @Get(':id')
-  getById(@Param('id', UuidParamPipe) id: string): CommentResponseDto {
-    return toCommentResponse(this.commentService.getByIdOrThrow(id));
+  async getById(@Param('id', UuidParamPipe) id: string): Promise<CommentResponseDto> {
+    return toCommentResponse(await this.commentService.getByIdOrThrow(id));
   }
 
   @ApiCreatedResponse({
@@ -96,8 +96,8 @@ export class CommentController {
     }),
   )
   @Post()
-  create(@Body() createCommentDto: CreateCommentDto): CommentResponseDto {
-    return toCommentResponse(this.commentService.create(createCommentDto));
+  async create(@Body() createCommentDto: CreateCommentDto): Promise<CommentResponseDto> {
+    return toCommentResponse(await this.commentService.create(createCommentDto));
   }
 
   @ApiNoContentResponse({ description: 'Returns no content if the record is found and deleted.' })
@@ -123,7 +123,7 @@ export class CommentController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): void {
-    this.commentService.delete(id);
+  delete(@Param('id', UuidParamPipe) id: string): Promise<void> {
+    return this.commentService.delete(id);
   }
 }

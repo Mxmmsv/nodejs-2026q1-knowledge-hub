@@ -18,8 +18,10 @@ export class ArticleService {
     private readonly articleRepository: ArticleRepository,
   ) {}
 
-  findAll(filters: FindArticlesQueryDto = {}): Article[] {
-    return this.articleRepository.findAll().filter((article) => {
+  async findAll(filters: FindArticlesQueryDto = {}): Promise<Article[]> {
+    const articles = await this.articleRepository.findAll();
+
+    return articles.filter((article) => {
       if (filters.status && article.status !== filters.status) {
         return false;
       }
@@ -36,12 +38,12 @@ export class ArticleService {
     });
   }
 
-  findById(id: string): Article | undefined {
+  async findById(id: string): Promise<Article | undefined> {
     return this.articleRepository.findById(id);
   }
 
-  getByIdOrThrow(id: string): Article {
-    const article = this.articleRepository.findById(id);
+  async getByIdOrThrow(id: string): Promise<Article> {
+    const article = await this.articleRepository.findById(id);
 
     if (!article) {
       throw new NotFoundException(AppErrorMessages.ARTICLE_NOT_FOUND);
@@ -50,7 +52,7 @@ export class ArticleService {
     return article;
   }
 
-  create(createArticleDto: CreateArticleDto): Article {
+  async create(createArticleDto: CreateArticleDto): Promise<Article> {
     const article: Article = {
       id: createEntityId(),
       title: createArticleDto.title,
@@ -65,8 +67,8 @@ export class ArticleService {
     return this.articleRepository.save(article);
   }
 
-  update(id: string, updateArticleDto: UpdateArticleDto): Article {
-    const article = this.getByIdOrThrow(id);
+  async update(id: string, updateArticleDto: UpdateArticleDto): Promise<Article> {
+    const article = await this.getByIdOrThrow(id);
 
     return this.articleRepository.save({
       ...article,
@@ -77,42 +79,44 @@ export class ArticleService {
     });
   }
 
-  save(article: Article): Article {
+  async save(article: Article): Promise<Article> {
     return this.articleRepository.save(article);
   }
 
-  delete(id: string): void {
-    this.getByIdOrThrow(id);
+  async delete(id: string): Promise<void> {
+    await this.getByIdOrThrow(id);
 
-    this.commentService.removeByArticleId(id);
-    this.articleRepository.remove(id);
+    await this.commentService.removeByArticleId(id);
+    await this.articleRepository.remove(id);
   }
 
-  clearAuthorIdByUserId(userId: string): void {
-    for (const article of this.articleRepository.findAll()) {
-      if (article.authorId !== userId) {
-        continue;
-      }
+  async clearAuthorIdByUserId(userId: string): Promise<void> {
+    const articles = await this.articleRepository.findAll();
+    const targetArticles = articles.filter((article) => article.authorId === userId);
 
-      this.articleRepository.save({
-        ...article,
-        authorId: null,
-        updatedAt: getCurrentTimestamp(),
-      });
-    }
+    await Promise.all(
+      targetArticles.map((article) =>
+        this.articleRepository.save({
+          ...article,
+          authorId: null,
+          updatedAt: getCurrentTimestamp(),
+        }),
+      ),
+    );
   }
 
-  clearCategoryIdByCategoryId(categoryId: string): void {
-    for (const article of this.articleRepository.findAll()) {
-      if (article.categoryId !== categoryId) {
-        continue;
-      }
+  async clearCategoryIdByCategoryId(categoryId: string): Promise<void> {
+    const articles = await this.articleRepository.findAll();
+    const targetArticles = articles.filter((article) => article.categoryId === categoryId);
 
-      this.articleRepository.save({
-        ...article,
-        categoryId: null,
-        updatedAt: getCurrentTimestamp(),
-      });
-    }
+    await Promise.all(
+      targetArticles.map((article) =>
+        this.articleRepository.save({
+          ...article,
+          categoryId: null,
+          updatedAt: getCurrentTimestamp(),
+        }),
+      ),
+    );
   }
 }

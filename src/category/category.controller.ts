@@ -27,8 +27,8 @@ export class CategoryController {
     isArray: true,
   })
   @Get()
-  getAll(): CategoryResponseDto[] {
-    return this.categoryService.findAll().map(toCategoryResponse);
+  async getAll(): Promise<CategoryResponseDto[]> {
+    return (await this.categoryService.findAll()).map(toCategoryResponse);
   }
 
   @ApiOkResponse({
@@ -56,8 +56,8 @@ export class CategoryController {
     }),
   )
   @Get(':id')
-  getById(@Param('id', UuidParamPipe) id: string): CategoryResponseDto {
-    return toCategoryResponse(this.categoryService.getByIdOrThrow(id));
+  async getById(@Param('id', UuidParamPipe) id: string): Promise<CategoryResponseDto> {
+    return toCategoryResponse(await this.categoryService.getByIdOrThrow(id));
   }
 
   @ApiCreatedResponse({
@@ -75,8 +75,8 @@ export class CategoryController {
     }),
   )
   @Post()
-  create(@Body() createCategoryDto: CreateCategoryDto): CategoryResponseDto {
-    return toCategoryResponse(this.categoryService.create(createCategoryDto));
+  async create(@Body() createCategoryDto: CreateCategoryDto): Promise<CategoryResponseDto> {
+    return toCategoryResponse(await this.categoryService.create(createCategoryDto));
   }
 
   @ApiOkResponse({
@@ -104,8 +104,11 @@ export class CategoryController {
     }),
   )
   @Put(':id')
-  update(@Param('id', UuidParamPipe) id: string, @Body() updateCategoryDto: UpdateCategoryDto): CategoryResponseDto {
-    return toCategoryResponse(this.categoryService.update(id, updateCategoryDto));
+  async update(
+    @Param('id', UuidParamPipe) id: string,
+    @Body() updateCategoryDto: UpdateCategoryDto,
+  ): Promise<CategoryResponseDto> {
+    return toCategoryResponse(await this.categoryService.update(id, updateCategoryDto));
   }
 
   @ApiNoContentResponse({ description: 'Returns no content if the record is found and deleted.' })
@@ -131,7 +134,7 @@ export class CategoryController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): void {
-    this.categoryService.delete(id);
+  delete(@Param('id', UuidParamPipe) id: string): Promise<void> {
+    return this.categoryService.delete(id);
   }
 }

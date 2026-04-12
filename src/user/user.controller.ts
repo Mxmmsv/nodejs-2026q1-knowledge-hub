@@ -28,8 +28,8 @@ export class UserController {
     isArray: true,
   })
   @Get()
-  getAll(): UserResponseDto[] {
-    return this.userService.findAll().map(toUserResponse);
+  async getAll(): Promise<UserResponseDto[]> {
+    return (await this.userService.findAll()).map(toUserResponse);
   }
 
   @ApiOkResponse({
@@ -57,8 +57,8 @@ export class UserController {
     }),
   )
   @Get(':id')
-  getById(@Param('id', UuidParamPipe) id: string): UserResponseDto {
-    return toUserResponse(this.userService.getByIdOrThrow(id));
+  async getById(@Param('id', UuidParamPipe) id: string): Promise<UserResponseDto> {
+    return toUserResponse(await this.userService.getByIdOrThrow(id));
   }
 
   @ApiCreatedResponse({
@@ -76,8 +76,8 @@ export class UserController {
     }),
   )
   @Post()
-  create(@Body() createUserDto: CreateUserDto): UserResponseDto {
-    return toUserResponse(this.userService.create(createUserDto));
+  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
+    return toUserResponse(await this.userService.create(createUserDto));
   }
 
   @ApiOkResponse({
@@ -118,8 +118,8 @@ export class UserController {
   updatePassword(
     @Param('id', UuidParamPipe) id: string,
     @Body() updatePasswordDto: UpdatePasswordDto,
-  ): UserResponseDto {
-    return toUserResponse(this.userService.updatePassword(id, updatePasswordDto));
+  ): Promise<UserResponseDto> {
+    return this.userService.updatePassword(id, updatePasswordDto).then(toUserResponse);
   }
 
   @ApiNoContentResponse({ description: 'Returns no content if the record is found and deleted.' })
@@ -145,7 +145,7 @@ export class UserController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): void {
-    this.userService.delete(id);
+  delete(@Param('id', UuidParamPipe) id: string): Promise<void> {
+    return this.userService.delete(id);
   }
 }

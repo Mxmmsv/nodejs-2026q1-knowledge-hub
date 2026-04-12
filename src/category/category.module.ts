@@ -11,12 +11,11 @@ import { CategoryRepository } from './repositories/category.repository';
   controllers: [CategoryController],
   providers: [
     CategoryService,
-    PrismaCategoryRepository,
     {
       provide: CategoryRepository,
-      useClass: InMemoryCategoryRepository,
+      useClass: PrismaCategoryRepository,
     },
   ],
-  exports: [CategoryService, CategoryRepository, PrismaCategoryRepository],
+  exports: [CategoryService, CategoryRepository],
 })
 export class CategoryModule {}

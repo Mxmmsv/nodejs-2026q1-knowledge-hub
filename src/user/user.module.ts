@@ -12,12 +12,11 @@ import { UserService } from './user.service';
   controllers: [UserController],
   providers: [
     UserService,
-    PrismaUserRepository,
     {
       provide: UserRepository,
-      useClass: InMemoryUserRepository,
+      useClass: PrismaUserRepository,
     },
   ],
-  exports: [UserService, UserRepository, PrismaUserRepository],
+  exports: [UserService, UserRepository],
 })
 export class UserModule {}
