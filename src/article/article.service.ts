@@ -19,23 +19,7 @@ export class ArticleService {
   ) {}
 
   async findAll(filters: FindArticlesQueryDto = {}): Promise<Article[]> {
-    const articles = await this.articleRepository.findAll();
-
-    return articles.filter((article) => {
-      if (filters.status && article.status !== filters.status) {
-        return false;
-      }
-
-      if (filters.categoryId && article.categoryId !== filters.categoryId) {
-        return false;
-      }
-
-      if (filters.tag && !article.tags.includes(filters.tag)) {
-        return false;
-      }
-
-      return true;
-    });
+    return this.articleRepository.findAll(filters);
   }
 
   async findById(id: string): Promise<Article | undefined> {

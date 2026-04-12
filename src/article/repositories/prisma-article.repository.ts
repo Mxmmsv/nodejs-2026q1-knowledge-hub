@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { toPrismaArticleStatus } from '../../prisma/mappers/prisma-enum.mappers';
 import { toArticleModel } from '../../prisma/mappers/prisma-record.mappers';
+import { PrismaService } from '../../prisma/prisma.service';
+import { FindArticlesQueryDto } from '../dto';
 import { Article } from '../models/article.model';
 import { ArticleRepository } from './article.repository';
 
@@ -20,14 +22,29 @@ const toArticleTagWrites = (tags: string[]) => ({
   })),
 });
 
+const toArticleWhereInput = (filters: FindArticlesQueryDto = {}): Prisma.ArticleWhereInput => ({
+  ...(filters.status ? { status: toPrismaArticleStatus(filters.status) } : {}),
+  ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+  ...(filters.tag
+    ? {
+        tags: {
+          some: {
+            name: filters.tag,
+          },
+        },
+      }
+    : {}),
+});
+
 @Injectable()
 export class PrismaArticleRepository extends ArticleRepository {
   constructor(private readonly prisma: PrismaService) {
     super();
   }
 
-  async findAll(): Promise<Article[]> {
+  async findAll(filters: FindArticlesQueryDto = {}): Promise<Article[]> {
     const articles = await this.prisma.article.findMany({
+      where: toArticleWhereInput(filters),
       include: articleInclude,
       orderBy: { createdAt: 'asc' },
     });
