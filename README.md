@@ -55,9 +55,6 @@ docker scout cves registry://mxmmsv/knowledge-hub:latest --platform linux/amd64 
 
 Docker Scout overview for `mxmmsv/knowledge-hub:latest`:
 
-- digest: `3ba8d24bb1b6`
-- platform: `linux/amd64`
-- provenance: `https://github.com/Mxmmsv/nodejs-2026q1-knowledge-hub` at commit `94837c87edca270db7e1f17ddd52f94c3ec1ec44`
 - packages indexed: `454`
 - vulnerabilities: `0` critical, `24` high
 - image size: `177 MB`
