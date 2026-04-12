@@ -7,18 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  ADMIN
-  EDITOR
-  VIEWER
-}
-
-enum ArticleStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
-
 model User {
   id        String    @id @default(uuid()) @db.Uuid
   login     String
@@ -39,10 +27,10 @@ model Article {
   updatedAt  DateTime      @updatedAt
   authorId   String?       @db.Uuid
   categoryId String?       @db.Uuid
-  author     User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  category   Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author     User?         @relation(fields: [authorId], references: [id])
+  category   Category?     @relation(fields: [categoryId], references: [id])
   comments   Comment[]
-  tags       Tag[]
+  tags       Tag[]         @relation("ArticleToTag")
 
   @@index([status])
   @@index([categoryId])
@@ -68,5 +56,17 @@ model Comment {
 model Tag {
   id       String    @id @default(uuid()) @db.Uuid
   name     String    @unique
-  articles Article[]
+  articles Article[] @relation("ArticleToTag")
+}
+
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
