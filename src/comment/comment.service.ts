@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
@@ -10,7 +10,6 @@ import { CommentRepository } from './repositories/comment.repository';
 @Injectable()
 export class CommentService {
   constructor(
-    @Inject(forwardRef(() => ArticleService))
     private readonly articleService: ArticleService,
     @Inject(CommentRepository)
     private readonly commentRepository: CommentRepository,
@@ -59,19 +58,5 @@ export class CommentService {
   async delete(id: string): Promise<void> {
     await this.getByIdOrThrow(id);
     await this.commentRepository.remove(id);
-  }
-
-  async removeByAuthorId(authorId: string): Promise<void> {
-    const comments = await this.commentRepository.findAll();
-    const targetComments = comments.filter((comment) => comment.authorId === authorId);
-
-    await Promise.all(targetComments.map((comment) => this.commentRepository.remove(comment.id)));
-  }
-
-  async removeByArticleId(articleId: string): Promise<void> {
-    const comments = await this.commentRepository.findAll();
-    const targetComments = comments.filter((comment) => comment.articleId === articleId);
-
-    await Promise.all(targetComments.map((comment) => this.commentRepository.remove(comment.id)));
   }
 }

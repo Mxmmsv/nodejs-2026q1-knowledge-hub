@@ -1,10 +1,10 @@
-import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { ArticleStatus } from '../common/enums/article-status.enum';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
-import { CommentService } from '../comment/comment.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateArticleDto, FindArticlesQueryDto, UpdateArticleDto } from './dto';
 import { Article } from './models/article.model';
 import { ArticleRepository } from './repositories/article.repository';
@@ -12,8 +12,7 @@ import { ArticleRepository } from './repositories/article.repository';
 @Injectable()
 export class ArticleService {
   constructor(
-    @Inject(forwardRef(() => CommentService))
-    private readonly commentService: CommentService,
+    private readonly prisma: PrismaService,
     @Inject(ArticleRepository)
     private readonly articleRepository: ArticleRepository,
   ) {}
@@ -70,37 +69,14 @@ export class ArticleService {
   async delete(id: string): Promise<void> {
     await this.getByIdOrThrow(id);
 
-    await this.commentService.removeByArticleId(id);
-    await this.articleRepository.remove(id);
-  }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.comment.deleteMany({
+        where: { articleId: id },
+      });
 
-  async clearAuthorIdByUserId(userId: string): Promise<void> {
-    const articles = await this.articleRepository.findAll();
-    const targetArticles = articles.filter((article) => article.authorId === userId);
-
-    await Promise.all(
-      targetArticles.map((article) =>
-        this.articleRepository.save({
-          ...article,
-          authorId: null,
-          updatedAt: getCurrentTimestamp(),
-        }),
-      ),
-    );
-  }
-
-  async clearCategoryIdByCategoryId(categoryId: string): Promise<void> {
-    const articles = await this.articleRepository.findAll();
-    const targetArticles = articles.filter((article) => article.categoryId === categoryId);
-
-    await Promise.all(
-      targetArticles.map((article) =>
-        this.articleRepository.save({
-          ...article,
-          categoryId: null,
-          updatedAt: getCurrentTimestamp(),
-        }),
-      ),
-    );
+      await tx.article.delete({
+        where: { id },
+      });
+    });
   }
 }

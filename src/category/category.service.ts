@@ -1,7 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { createEntityId } from '../common/utils/create-entity-id';
-import { ArticleService } from '../article/article.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto';
 import { Category } from './models/category.model';
 import { CategoryRepository } from './repositories/category.repository';
@@ -9,7 +9,7 @@ import { CategoryRepository } from './repositories/category.repository';
 @Injectable()
 export class CategoryService {
   constructor(
-    private readonly articleService: ArticleService,
+    private readonly prisma: PrismaService,
     @Inject(CategoryRepository)
     private readonly categoryRepository: CategoryRepository,
   ) {}
@@ -55,7 +55,15 @@ export class CategoryService {
   async delete(id: string): Promise<void> {
     await this.getByIdOrThrow(id);
 
-    await this.articleService.clearCategoryIdByCategoryId(id);
-    await this.categoryRepository.remove(id);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.article.updateMany({
+        where: { categoryId: id },
+        data: { categoryId: null },
+      });
+
+      await tx.category.delete({
+        where: { id },
+      });
+    });
   }
 }
