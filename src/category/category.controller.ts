@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -11,6 +22,10 @@ import {
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../auth/auth.types';
+import { isAuthMode } from '../auth/auth.utils';
+import { UserRole } from '../common/enums/user-role.enum';
 import { CategoryResponseDto, CreateCategoryDto, UpdateCategoryDto } from './dto';
 import { CategoryService } from './category.service';
 import { toCategoryResponse } from './utils/to-category-response';
@@ -27,8 +42,8 @@ export class CategoryController {
     isArray: true,
   })
   @Get()
-  getAll(): CategoryResponseDto[] {
-    return this.categoryService.findAll().map(toCategoryResponse);
+  async getAll(): Promise<CategoryResponseDto[]> {
+    return (await this.categoryService.findAll()).map(toCategoryResponse);
   }
 
   @ApiOkResponse({
@@ -56,8 +71,8 @@ export class CategoryController {
     }),
   )
   @Get(':id')
-  getById(@Param('id', UuidParamPipe) id: string): CategoryResponseDto {
-    return toCategoryResponse(this.categoryService.getByIdOrThrow(id));
+  async getById(@Param('id', UuidParamPipe) id: string): Promise<CategoryResponseDto> {
+    return toCategoryResponse(await this.categoryService.getByIdOrThrow(id));
   }
 
   @ApiCreatedResponse({
@@ -75,8 +90,15 @@ export class CategoryController {
     }),
   )
   @Post()
-  create(@Body() createCategoryDto: CreateCategoryDto): CategoryResponseDto {
-    return toCategoryResponse(this.categoryService.create(createCategoryDto));
+  async create(
+    @Body() createCategoryDto: CreateCategoryDto,
+    @CurrentUser() currentUser?: AuthUser,
+  ): Promise<CategoryResponseDto> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
+    return toCategoryResponse(await this.categoryService.create(createCategoryDto));
   }
 
   @ApiOkResponse({
@@ -104,8 +126,16 @@ export class CategoryController {
     }),
   )
   @Put(':id')
-  update(@Param('id', UuidParamPipe) id: string, @Body() updateCategoryDto: UpdateCategoryDto): CategoryResponseDto {
-    return toCategoryResponse(this.categoryService.update(id, updateCategoryDto));
+  async update(
+    @Param('id', UuidParamPipe) id: string,
+    @Body() updateCategoryDto: UpdateCategoryDto,
+    @CurrentUser() currentUser?: AuthUser,
+  ): Promise<CategoryResponseDto> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
+    return toCategoryResponse(await this.categoryService.update(id, updateCategoryDto));
   }
 
   @ApiNoContentResponse({ description: 'Returns no content if the record is found and deleted.' })
@@ -131,7 +161,11 @@ export class CategoryController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): void {
-    this.categoryService.delete(id);
+  delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
+    return this.categoryService.delete(id);
   }
 }

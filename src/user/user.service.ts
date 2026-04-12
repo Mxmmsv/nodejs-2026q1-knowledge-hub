@@ -4,31 +4,30 @@ import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
-import { ArticleService } from '../article/article.service';
-import { CommentService } from '../comment/comment.service';
-import { CreateUserDto, UpdatePasswordDto } from './dto';
+import { PrismaService } from '../prisma/prisma.service';
+import { hashPassword, isPasswordMatch } from '../auth/auth.utils';
+import { CreateUserDto, UpdateUserDto } from './dto';
 import { User } from './models/user.model';
 import { UserRepository } from './repositories/user.repository';
 
 @Injectable()
 export class UserService {
   constructor(
-    private readonly articleService: ArticleService,
-    private readonly commentService: CommentService,
+    private readonly prisma: PrismaService,
     @Inject(UserRepository)
     private readonly userRepository: UserRepository,
   ) {}
 
-  findAll(): User[] {
+  async findAll(): Promise<User[]> {
     return this.userRepository.findAll();
   }
 
-  findById(id: string): User | undefined {
+  async findById(id: string): Promise<User | undefined> {
     return this.userRepository.findById(id);
   }
 
-  getByIdOrThrow(id: string): User {
-    const user = this.userRepository.findById(id);
+  async getByIdOrThrow(id: string): Promise<User> {
+    const user = await this.userRepository.findById(id);
 
     if (!user) {
       throw new NotFoundException(AppErrorMessages.USER_NOT_FOUND);
@@ -37,11 +36,11 @@ export class UserService {
     return user;
   }
 
-  create(createUserDto: CreateUserDto): User {
+  async create(createUserDto: CreateUserDto): Promise<User> {
     const user: User = {
       id: createEntityId(),
       login: createUserDto.login,
-      password: createUserDto.password,
+      password: await hashPassword(createUserDto.password),
       role: createUserDto.role ?? UserRole.VIEWER,
       ...createAuditTimestamps(),
     };
@@ -49,25 +48,46 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  updatePassword(id: string, updatePasswordDto: UpdatePasswordDto): User {
-    const user = this.getByIdOrThrow(id);
+  async updatePassword(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+    const user = await this.getByIdOrThrow(id);
 
-    if (user.password !== updatePasswordDto.oldPassword) {
+    if (!(await isPasswordMatch(updateUserDto.oldPassword ?? '', user.password))) {
       throw new ForbiddenException(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH);
     }
 
     return this.userRepository.save({
       ...user,
-      password: updatePasswordDto.newPassword,
+      password: await hashPassword(updateUserDto.newPassword ?? ''),
       updatedAt: getCurrentTimestamp(),
     });
   }
 
-  delete(id: string): void {
-    this.getByIdOrThrow(id);
+  async updateRole(id: string, role: UserRole): Promise<User> {
+    const user = await this.getByIdOrThrow(id);
 
-    this.articleService.clearAuthorIdByUserId(id);
-    this.commentService.removeByAuthorId(id);
-    this.userRepository.remove(id);
+    return this.userRepository.save({
+      ...user,
+      role,
+      updatedAt: getCurrentTimestamp(),
+    });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.getByIdOrThrow(id);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.article.updateMany({
+        where: { authorId: id },
+        data: { authorId: null },
+      });
+
+      await tx.comment.deleteMany({
+        where: { authorId: id },
+      });
+
+      await tx.user.delete({
+        where: { id },
+      });
+    });
   }
 }

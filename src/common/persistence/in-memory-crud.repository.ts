@@ -4,21 +4,21 @@ import { EntityWithId } from './entity-with-id.interface';
 export abstract class InMemoryCrudRepository<TEntity extends EntityWithId> implements CrudRepository<TEntity> {
   protected readonly items = new Map<string, TEntity>();
 
-  findAll(): TEntity[] {
+  async findAll(): Promise<TEntity[]> {
     return Array.from(this.items.values());
   }
 
-  findById(id: string): TEntity | undefined {
+  async findById(id: string): Promise<TEntity | undefined> {
     return this.items.get(id);
   }
 
-  save(entity: TEntity): TEntity {
+  async save(entity: TEntity): Promise<TEntity> {
     this.items.set(entity.id, entity);
 
     return entity;
   }
 
-  remove(id: string): boolean {
+  async remove(id: string): Promise<boolean> {
     return this.items.delete(id);
   }
 }

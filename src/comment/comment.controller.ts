@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -12,6 +23,10 @@ import {
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../auth/auth.types';
+import { isAuthMode } from '../auth/auth.utils';
+import { UserRole } from '../common/enums/user-role.enum';
 import { CommentResponseDto, CreateCommentDto, FindCommentsQueryDto } from './dto';
 import { CommentService } from './comment.service';
 import { toCommentResponse } from './utils/to-comment-response';
@@ -38,8 +53,8 @@ export class CommentController {
     }),
   )
   @Get()
-  getByArticle(@Query() query: FindCommentsQueryDto): CommentResponseDto[] {
-    return this.commentService.findAllByArticleId(query.articleId).map(toCommentResponse);
+  async getByArticle(@Query() query: FindCommentsQueryDto): Promise<CommentResponseDto[]> {
+    return (await this.commentService.findAllByArticleId(query.articleId)).map(toCommentResponse);
   }
 
   @ApiOkResponse({
@@ -67,8 +82,8 @@ export class CommentController {
     }),
   )
   @Get(':id')
-  getById(@Param('id', UuidParamPipe) id: string): CommentResponseDto {
-    return toCommentResponse(this.commentService.getByIdOrThrow(id));
+  async getById(@Param('id', UuidParamPipe) id: string): Promise<CommentResponseDto> {
+    return toCommentResponse(await this.commentService.getByIdOrThrow(id));
   }
 
   @ApiCreatedResponse({
@@ -96,8 +111,32 @@ export class CommentController {
     }),
   )
   @Post()
-  create(@Body() createCommentDto: CreateCommentDto): CommentResponseDto {
-    return toCommentResponse(this.commentService.create(createCommentDto));
+  async create(
+    @Body() createCommentDto: CreateCommentDto,
+    @CurrentUser() currentUser?: AuthUser,
+  ): Promise<CommentResponseDto> {
+    let payload = createCommentDto;
+
+    if (isAuthMode()) {
+      if (currentUser?.role === UserRole.VIEWER) {
+        throw new ForbiddenException();
+      }
+
+      if (currentUser?.role === UserRole.EDITOR) {
+        const authorId = createCommentDto.authorId ?? currentUser.userId;
+
+        if (authorId !== currentUser.userId) {
+          throw new ForbiddenException();
+        }
+
+        payload = {
+          ...createCommentDto,
+          authorId,
+        };
+      }
+    }
+
+    return toCommentResponse(await this.commentService.create(payload));
   }
 
   @ApiNoContentResponse({ description: 'Returns no content if the record is found and deleted.' })
@@ -123,7 +162,21 @@ export class CommentController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): void {
-    this.commentService.delete(id);
+  async delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
+    if (isAuthMode()) {
+      if (currentUser?.role === UserRole.VIEWER) {
+        throw new ForbiddenException();
+      }
+
+      if (currentUser?.role === UserRole.EDITOR) {
+        const comment = await this.commentService.getByIdOrThrow(id);
+
+        if (comment.authorId !== currentUser.userId) {
+          throw new ForbiddenException();
+        }
+      }
+    }
+
+    return this.commentService.delete(id);
   }
 }

@@ -1,10 +1,10 @@
-import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { ArticleStatus } from '../common/enums/article-status.enum';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
-import { CommentService } from '../comment/comment.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateArticleDto, FindArticlesQueryDto, UpdateArticleDto } from './dto';
 import { Article } from './models/article.model';
 import { ArticleRepository } from './repositories/article.repository';
@@ -12,36 +12,21 @@ import { ArticleRepository } from './repositories/article.repository';
 @Injectable()
 export class ArticleService {
   constructor(
-    @Inject(forwardRef(() => CommentService))
-    private readonly commentService: CommentService,
+    private readonly prisma: PrismaService,
     @Inject(ArticleRepository)
     private readonly articleRepository: ArticleRepository,
   ) {}
 
-  findAll(filters: FindArticlesQueryDto = {}): Article[] {
-    return this.articleRepository.findAll().filter((article) => {
-      if (filters.status && article.status !== filters.status) {
-        return false;
-      }
-
-      if (filters.categoryId && article.categoryId !== filters.categoryId) {
-        return false;
-      }
-
-      if (filters.tag && !article.tags.includes(filters.tag)) {
-        return false;
-      }
-
-      return true;
-    });
+  async findAll(filters: FindArticlesQueryDto = {}): Promise<Article[]> {
+    return this.articleRepository.findAll(filters);
   }
 
-  findById(id: string): Article | undefined {
+  async findById(id: string): Promise<Article | undefined> {
     return this.articleRepository.findById(id);
   }
 
-  getByIdOrThrow(id: string): Article {
-    const article = this.articleRepository.findById(id);
+  async getByIdOrThrow(id: string): Promise<Article> {
+    const article = await this.articleRepository.findById(id);
 
     if (!article) {
       throw new NotFoundException(AppErrorMessages.ARTICLE_NOT_FOUND);
@@ -50,7 +35,7 @@ export class ArticleService {
     return article;
   }
 
-  create(createArticleDto: CreateArticleDto): Article {
+  async create(createArticleDto: CreateArticleDto): Promise<Article> {
     const article: Article = {
       id: createEntityId(),
       title: createArticleDto.title,
@@ -65,8 +50,8 @@ export class ArticleService {
     return this.articleRepository.save(article);
   }
 
-  update(id: string, updateArticleDto: UpdateArticleDto): Article {
-    const article = this.getByIdOrThrow(id);
+  async update(id: string, updateArticleDto: UpdateArticleDto): Promise<Article> {
+    const article = await this.getByIdOrThrow(id);
 
     return this.articleRepository.save({
       ...article,
@@ -77,42 +62,21 @@ export class ArticleService {
     });
   }
 
-  save(article: Article): Article {
+  async save(article: Article): Promise<Article> {
     return this.articleRepository.save(article);
   }
 
-  delete(id: string): void {
-    this.getByIdOrThrow(id);
+  async delete(id: string): Promise<void> {
+    await this.getByIdOrThrow(id);
 
-    this.commentService.removeByArticleId(id);
-    this.articleRepository.remove(id);
-  }
-
-  clearAuthorIdByUserId(userId: string): void {
-    for (const article of this.articleRepository.findAll()) {
-      if (article.authorId !== userId) {
-        continue;
-      }
-
-      this.articleRepository.save({
-        ...article,
-        authorId: null,
-        updatedAt: getCurrentTimestamp(),
+    await this.prisma.$transaction(async (tx) => {
+      await tx.comment.deleteMany({
+        where: { articleId: id },
       });
-    }
-  }
 
-  clearCategoryIdByCategoryId(categoryId: string): void {
-    for (const article of this.articleRepository.findAll()) {
-      if (article.categoryId !== categoryId) {
-        continue;
-      }
-
-      this.articleRepository.save({
-        ...article,
-        categoryId: null,
-        updatedAt: getCurrentTimestamp(),
+      await tx.article.delete({
+        where: { id },
       });
-    }
+    });
   }
 }
