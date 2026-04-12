@@ -3,6 +3,7 @@ import { CommentModule } from '../comment/comment.module';
 import { ArticleController } from './article.controller';
 import { ArticleService } from './article.service';
 import { InMemoryArticleRepository } from './repositories/in-memory-article.repository';
+import { PrismaArticleRepository } from './repositories/prisma-article.repository';
 import { ArticleRepository } from './repositories/article.repository';
 
 @Module({
@@ -10,11 +11,12 @@ import { ArticleRepository } from './repositories/article.repository';
   controllers: [ArticleController],
   providers: [
     ArticleService,
+    PrismaArticleRepository,
     {
       provide: ArticleRepository,
       useClass: InMemoryArticleRepository,
     },
   ],
-  exports: [ArticleService, ArticleRepository],
+  exports: [ArticleService, ArticleRepository, PrismaArticleRepository],
 })
 export class ArticleModule {}
