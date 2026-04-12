@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -11,8 +23,12 @@ import {
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../auth/auth.types';
+import { isAuthMode } from '../auth/auth.utils';
 import { ArticleResponseDto, CreateArticleDto, FindArticlesQueryDto, UpdateArticleDto } from './dto';
 import { ArticleService } from './article.service';
+import { UserRole } from '../common/enums/user-role.enum';
 import { toArticleResponse } from './utils/to-article-response';
 
 @ApiTags('Articles')
@@ -91,8 +107,32 @@ export class ArticleController {
     }),
   )
   @Post()
-  async create(@Body() createArticleDto: CreateArticleDto): Promise<ArticleResponseDto> {
-    return toArticleResponse(await this.articleService.create(createArticleDto));
+  async create(
+    @Body() createArticleDto: CreateArticleDto,
+    @CurrentUser() currentUser?: AuthUser,
+  ): Promise<ArticleResponseDto> {
+    let payload = createArticleDto;
+
+    if (isAuthMode()) {
+      if (currentUser?.role === UserRole.VIEWER) {
+        throw new ForbiddenException();
+      }
+
+      if (currentUser?.role === UserRole.EDITOR) {
+        const authorId = createArticleDto.authorId ?? currentUser.userId;
+
+        if (authorId !== currentUser.userId) {
+          throw new ForbiddenException();
+        }
+
+        payload = {
+          ...createArticleDto,
+          authorId,
+        };
+      }
+    }
+
+    return toArticleResponse(await this.articleService.create(payload));
   }
 
   @ApiOkResponse({
@@ -123,8 +163,25 @@ export class ArticleController {
   async update(
     @Param('id', UuidParamPipe) id: string,
     @Body() updateArticleDto: UpdateArticleDto,
+    @CurrentUser() currentUser?: AuthUser,
   ): Promise<ArticleResponseDto> {
-    return toArticleResponse(await this.articleService.update(id, updateArticleDto));
+    if (isAuthMode()) {
+      if (currentUser?.role === UserRole.VIEWER) {
+        throw new ForbiddenException();
+      }
+
+      if (currentUser?.role === UserRole.EDITOR) {
+        const article = await this.articleService.getByIdOrThrow(id);
+
+        if (article.authorId !== currentUser.userId) {
+          throw new ForbiddenException();
+        }
+      }
+    }
+
+    const { authorId: _ignoredAuthorId, ...safeUpdateArticleDto } = updateArticleDto;
+
+    return toArticleResponse(await this.articleService.update(id, safeUpdateArticleDto));
   }
 
   @ApiNoContentResponse({ description: 'Returns no content if the record is found and deleted.' })
@@ -150,7 +207,11 @@ export class ArticleController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): Promise<void> {
+  delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
     return this.articleService.delete(id);
   }
 }

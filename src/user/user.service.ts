@@ -5,7 +5,8 @@ import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto, UpdatePasswordDto } from './dto';
+import { hashPassword, isPasswordMatch } from '../auth/auth.utils';
+import { CreateUserDto, UpdateUserDto } from './dto';
 import { User } from './models/user.model';
 import { UserRepository } from './repositories/user.repository';
 
@@ -39,7 +40,7 @@ export class UserService {
     const user: User = {
       id: createEntityId(),
       login: createUserDto.login,
-      password: createUserDto.password,
+      password: await hashPassword(createUserDto.password),
       role: createUserDto.role ?? UserRole.VIEWER,
       ...createAuditTimestamps(),
     };
@@ -47,16 +48,26 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async updatePassword(id: string, updatePasswordDto: UpdatePasswordDto): Promise<User> {
+  async updatePassword(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.getByIdOrThrow(id);
 
-    if (user.password !== updatePasswordDto.oldPassword) {
+    if (!(await isPasswordMatch(updateUserDto.oldPassword ?? '', user.password))) {
       throw new ForbiddenException(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH);
     }
 
     return this.userRepository.save({
       ...user,
-      password: updatePasswordDto.newPassword,
+      password: await hashPassword(updateUserDto.newPassword ?? ''),
+      updatedAt: getCurrentTimestamp(),
+    });
+  }
+
+  async updateRole(id: string, role: UserRole): Promise<User> {
+    const user = await this.getByIdOrThrow(id);
+
+    return this.userRepository.save({
+      ...user,
+      role,
       updatedAt: getCurrentTimestamp(),
     });
   }

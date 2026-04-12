@@ -17,7 +17,7 @@
     "prisma:validate": "prisma validate",
     "prisma:pull": "prisma db pull",
     "prisma:studio": "prisma studio",
-    "prebuild": "rimraf dist",
+    "prebuild": "rimraf dist tsconfig.build.tsbuildinfo",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",

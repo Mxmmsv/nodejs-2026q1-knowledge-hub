@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -12,7 +24,11 @@ import {
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
-import { CreateUserDto, UpdatePasswordDto, UserResponseDto } from './dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../auth/auth.types';
+import { isAuthMode } from '../auth/auth.utils';
+import { UserRole } from '../common/enums/user-role.enum';
+import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
 import { UserService } from './user.service';
 import { toUserResponse } from './utils/to-user-response';
 
@@ -76,7 +92,11 @@ export class UserController {
     }),
   )
   @Post()
-  async create(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
+  async create(@Body() createUserDto: CreateUserDto, @CurrentUser() currentUser?: AuthUser): Promise<UserResponseDto> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
     return toUserResponse(await this.userService.create(createUserDto));
   }
 
@@ -115,11 +135,28 @@ export class UserController {
     }),
   )
   @Put(':id')
-  updatePassword(
+  async updatePassword(
     @Param('id', UuidParamPipe) id: string,
-    @Body() updatePasswordDto: UpdatePasswordDto,
+    @Body() updateUserDto: UpdateUserDto,
+    @CurrentUser() currentUser?: AuthUser,
   ): Promise<UserResponseDto> {
-    return this.userService.updatePassword(id, updatePasswordDto).then(toUserResponse);
+    if (updateUserDto.role !== undefined) {
+      if (!isAuthMode()) {
+        throw new BadRequestException('Role updates are available only in auth mode');
+      }
+
+      if (currentUser?.role !== UserRole.ADMIN) {
+        throw new ForbiddenException();
+      }
+
+      return toUserResponse(await this.userService.updateRole(id, updateUserDto.role));
+    }
+
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN && currentUser?.userId !== id) {
+      throw new ForbiddenException();
+    }
+
+    return toUserResponse(await this.userService.updatePassword(id, updateUserDto));
   }
 
   @ApiNoContentResponse({ description: 'Returns no content if the record is found and deleted.' })
@@ -145,7 +182,11 @@ export class UserController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): Promise<void> {
+  delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
     return this.userService.delete(id);
   }
 }

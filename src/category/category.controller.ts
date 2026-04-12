@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -11,6 +22,10 @@ import {
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthUser } from '../auth/auth.types';
+import { isAuthMode } from '../auth/auth.utils';
+import { UserRole } from '../common/enums/user-role.enum';
 import { CategoryResponseDto, CreateCategoryDto, UpdateCategoryDto } from './dto';
 import { CategoryService } from './category.service';
 import { toCategoryResponse } from './utils/to-category-response';
@@ -75,7 +90,14 @@ export class CategoryController {
     }),
   )
   @Post()
-  async create(@Body() createCategoryDto: CreateCategoryDto): Promise<CategoryResponseDto> {
+  async create(
+    @Body() createCategoryDto: CreateCategoryDto,
+    @CurrentUser() currentUser?: AuthUser,
+  ): Promise<CategoryResponseDto> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
     return toCategoryResponse(await this.categoryService.create(createCategoryDto));
   }
 
@@ -107,7 +129,12 @@ export class CategoryController {
   async update(
     @Param('id', UuidParamPipe) id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
+    @CurrentUser() currentUser?: AuthUser,
   ): Promise<CategoryResponseDto> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
     return toCategoryResponse(await this.categoryService.update(id, updateCategoryDto));
   }
 
@@ -134,7 +161,11 @@ export class CategoryController {
   )
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
-  delete(@Param('id', UuidParamPipe) id: string): Promise<void> {
+  delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
+    if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
+      throw new ForbiddenException();
+    }
+
     return this.categoryService.delete(id);
   }
 }

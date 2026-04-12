@@ -26,6 +26,14 @@ export class UpdateArticleDto {
   })
   @IsOptional()
   @IsUUID('4')
+  authorId?: string | null;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    nullable: true,
+  })
+  @IsOptional()
+  @IsUUID('4')
   categoryId?: string | null;
 
   @ApiPropertyOptional({
