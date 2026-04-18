@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBody,
   ApiBadRequestResponse,
@@ -7,12 +7,14 @@ import {
   ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiOkResponse,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { createErrorResponse } from '../common/swagger/create-error-response';
 import { UserResponseDto } from '../user/dto';
 import { toUserResponse } from '../user/utils/to-user-response';
+import { AuthRateLimitGuard } from './auth-rate-limit.guard';
 import { Public } from './public.decorator';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshTokenBodyDto, SignupDto, TokenPairResponseDto } from './dto';
@@ -23,6 +25,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @UseGuards(AuthRateLimitGuard)
   @ApiCreatedResponse({
     description: 'Creates a new account.',
     type: UserResponseDto,
@@ -37,12 +40,23 @@ export class AuthController {
       },
     }),
   )
+  @ApiTooManyRequestsResponse(
+    createErrorResponse({
+      description: 'Returns too many requests if the signup limit is exceeded.',
+      example: {
+        statusCode: 429,
+        error: 'Too Many Requests',
+        message: 'Too many authentication attempts, please try again later',
+      },
+    }),
+  )
   @Post('signup')
   async signup(@Body() signupDto: SignupDto): Promise<UserResponseDto> {
     return toUserResponse(await this.authService.signup(signupDto));
   }
 
   @Public()
+  @UseGuards(AuthRateLimitGuard)
   @ApiOkResponse({
     description: 'Returns a valid access and refresh token pair.',
     type: TokenPairResponseDto,
@@ -64,6 +78,16 @@ export class AuthController {
         statusCode: 403,
         error: 'Forbidden',
         message: 'Invalid login or password',
+      },
+    }),
+  )
+  @ApiTooManyRequestsResponse(
+    createErrorResponse({
+      description: 'Returns too many requests if the login limit is exceeded.',
+      example: {
+        statusCode: 429,
+        error: 'Too Many Requests',
+        message: 'Too many authentication attempts, please try again later',
       },
     }),
   )
