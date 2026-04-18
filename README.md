@@ -26,6 +26,8 @@ cp .env.example .env
 docker compose up --build
 ```
 
+Docker Compose now starts a dedicated `migrate` service before the API, so Prisma migrations are applied automatically on startup.
+
 After startup, the API is available on `http://localhost:4000` and Swagger is available on `http://localhost:4000/doc`.
 ## Docker
 
@@ -34,6 +36,8 @@ Start the project with Docker Compose:
 ```bash
 docker compose up --build
 ```
+
+The `migrate` service runs `npx prisma migrate deploy` before the application starts. This means a fresh database gets the latest schema automatically when the stack boots.
 
 Start the project with Adminer enabled:
 
@@ -76,6 +80,13 @@ Reset the local database and re-run migrations + seed:
 npx prisma migrate reset --force
 ```
 
+If you use Docker and want a completely clean PostgreSQL volume, remove the stack volumes and start again:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
 Open Prisma Studio:
 
 ```bash
@@ -85,19 +96,38 @@ npx prisma studio
 
 Tests expect the API to already be running on `localhost:4000`.
 
-For the base compatibility suite, start the application normally:
+For the base compatibility suite, start the application normally.
+
+Local startup:
 
 ```bash
 npm start
 ```
 
-For auth, refresh, and RBAC suites, start the application with `TEST_MODE=auth`:
+Docker startup:
+
+```bash
+docker compose up --build
+```
+
+For auth, refresh, and RBAC suites, start the application with `TEST_MODE=auth`.
+
+Local startup:
 
 ```bash
 npx cross-env TEST_MODE=auth npm start
 ```
 
-Then open a new terminal and run the needed test command.
+Docker startup:
+
+Add `TEST_MODE=auth` to `.env`, restart the stack, then run the test command from another terminal:
+
+```bash
+docker compose down
+docker compose up --build
+```
+
+Then open a new terminal and run the needed test command. If the database contains leftover test records, reset it with `npx prisma migrate reset --force` or recreate Docker volumes with `docker compose down -v`.
 
 To run all tests without authorization
 
