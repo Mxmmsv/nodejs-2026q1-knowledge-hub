@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
@@ -37,11 +37,19 @@ export class UserService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { login: createUserDto.login },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException(AppErrorMessages.USER_ALREADY_EXISTS);
+    }
+
     const user: User = {
       id: createEntityId(),
       login: createUserDto.login,
       password: await hashPassword(createUserDto.password),
-      role: createUserDto.role ?? UserRole.VIEWER,
+      role: UserRole.VIEWER,
       ...createAuditTimestamps(),
     };
 
