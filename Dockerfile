@@ -9,6 +9,21 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
+FROM node:24-alpine AS migrate
+
+WORKDIR /home/node/app
+
+RUN mkdir -p /home/node/app \
+    && chown node:node /home/node/app
+
+USER node
+
+COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node prisma ./prisma
+RUN npm ci && npm cache clean --force
+
+CMD ["npx", "prisma", "migrate", "deploy"]
+
 FROM node:24-alpine AS production
 
 ENV NODE_ENV=production
