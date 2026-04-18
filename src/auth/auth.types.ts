@@ -5,3 +5,7 @@ export interface AuthUser {
   login: string;
   role: UserRole;
 }
+
+export interface RefreshTokenPayload extends AuthUser {
+  jti: string;
+}

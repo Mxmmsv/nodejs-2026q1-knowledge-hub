@@ -1,18 +1,21 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
-  ApiConflictResponse,
+  ApiBody,
+  ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiExtraModels,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { createErrorResponse } from '../common/swagger/create-error-response';
-import { CreateUserDto, UserResponseDto } from '../user/dto';
+import { UserResponseDto } from '../user/dto';
 import { toUserResponse } from '../user/utils/to-user-response';
 import { Public } from './public.decorator';
 import { AuthService } from './auth.service';
-import { LoginDto, TokenPairResponseDto } from './dto';
+import { LoginDto, RefreshTokenBodyDto, SignupDto, TokenPairResponseDto } from './dto';
 
 @ApiExtraModels(ErrorResponseDto)
 @Controller('auth')
@@ -24,19 +27,19 @@ export class AuthController {
     description: 'Creates a new account.',
     type: UserResponseDto,
   })
-  @ApiConflictResponse(
+  @ApiBadRequestResponse(
     createErrorResponse({
-      description: 'Returns a corresponding message if user with the same login already exists.',
+      description: 'Returns a corresponding message if dto is invalid or login is already taken.',
       example: {
-        statusCode: 409,
-        error: 'Conflict',
+        statusCode: 400,
+        error: 'Bad Request',
         message: 'User already exists',
       },
     }),
   )
   @Post('signup')
-  async signup(@Body() createUserDto: CreateUserDto): Promise<UserResponseDto> {
-    return toUserResponse(await this.authService.signup(createUserDto));
+  async signup(@Body() signupDto: SignupDto): Promise<UserResponseDto> {
+    return toUserResponse(await this.authService.signup(signupDto));
   }
 
   @Public()
@@ -44,13 +47,23 @@ export class AuthController {
     description: 'Returns a valid access and refresh token pair.',
     type: TokenPairResponseDto,
   })
-  @ApiUnauthorizedResponse(
+  @ApiBadRequestResponse(
     createErrorResponse({
-      description: 'Returns unauthorized if credentials are missing or invalid.',
+      description: 'Returns bad request if dto is invalid.',
       example: {
-        statusCode: 401,
-        error: 'Unauthorized',
-        message: 'Unauthorized',
+        statusCode: 400,
+        error: 'Bad Request',
+        message: ['login should not be empty', 'password should not be empty'],
+      },
+    }),
+  )
+  @ApiForbiddenResponse(
+    createErrorResponse({
+      description: 'Returns forbidden if credentials are invalid.',
+      example: {
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Invalid login or password',
       },
     }),
   )
@@ -65,19 +78,65 @@ export class AuthController {
     description: 'Returns a refreshed access and refresh token pair.',
     type: TokenPairResponseDto,
   })
+  @ApiBody({
+    type: RefreshTokenBodyDto,
+  })
   @ApiUnauthorizedResponse(
     createErrorResponse({
       description: 'Returns unauthorized if refresh token is missing.',
       example: {
         statusCode: 401,
         error: 'Unauthorized',
-        message: 'Unauthorized',
+        message: 'Refresh token is required',
+      },
+    }),
+  )
+  @ApiForbiddenResponse(
+    createErrorResponse({
+      description: 'Returns forbidden if refresh token is invalid, expired, or revoked.',
+      example: {
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Refresh token is invalid or expired',
       },
     }),
   )
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  refresh(@Body() body?: { refreshToken?: string }): Promise<TokenPairResponseDto> {
+  refresh(@Body() body?: Record<string, unknown>): Promise<TokenPairResponseDto> {
     return this.authService.refresh(body?.refreshToken);
+  }
+
+  @Public()
+  @ApiNoContentResponse({
+    description: 'Revokes the provided refresh token.',
+  })
+  @ApiBody({
+    type: RefreshTokenBodyDto,
+  })
+  @ApiUnauthorizedResponse(
+    createErrorResponse({
+      description: 'Returns unauthorized if refresh token is missing.',
+      example: {
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Refresh token is required',
+      },
+    }),
+  )
+  @ApiForbiddenResponse(
+    createErrorResponse({
+      description: 'Returns forbidden if refresh token is invalid, expired, or revoked.',
+      example: {
+        statusCode: 403,
+        error: 'Forbidden',
+        message: 'Refresh token is invalid or expired',
+      },
+    }),
+  )
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logout(@Body() body?: Record<string, unknown>): Promise<void> {
+    await this.authService.logout(body?.refreshToken);
   }
 }
