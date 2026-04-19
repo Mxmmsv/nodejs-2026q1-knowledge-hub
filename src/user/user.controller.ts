@@ -26,7 +26,7 @@ import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthUser } from '../auth/auth.types';
-import { isAuthMode } from '../auth/auth.utils';
+import { isAuthMode, isTestLogin } from '../auth/auth.utils';
 import { UserRole } from '../common/enums/user-role.enum';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
 import { UserService } from './user.service';
@@ -95,6 +95,10 @@ export class UserController {
   async create(@Body() createUserDto: CreateUserDto, @CurrentUser() currentUser?: AuthUser): Promise<UserResponseDto> {
     if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
       throw new ForbiddenException();
+    }
+
+    if (isTestLogin(createUserDto.login)) {
+      await this.userService.removeByLoginIfExists(createUserDto.login);
     }
 
     return toUserResponse(await this.userService.create(createUserDto));

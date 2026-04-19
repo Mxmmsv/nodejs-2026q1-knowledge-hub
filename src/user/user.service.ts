@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
@@ -6,6 +6,7 @@ import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashPassword, isPasswordMatch } from '../auth/auth.utils';
+import { toUserModel } from '../prisma/mappers/prisma-record.mappers';
 import { CreateUserDto, UpdateUserDto } from './dto';
 import { User } from './models/user.model';
 import { UserRepository } from './repositories/user.repository';
@@ -37,28 +38,54 @@ export class UserService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { login: createUserDto.login },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException(AppErrorMessages.USER_ALREADY_EXISTS);
+    }
+
     const user: User = {
       id: createEntityId(),
       login: createUserDto.login,
       password: await hashPassword(createUserDto.password),
-      role: createUserDto.role ?? UserRole.VIEWER,
+      role: UserRole.VIEWER,
       ...createAuditTimestamps(),
     };
 
     return this.userRepository.save(user);
   }
 
+  async removeByLoginIfExists(login: string): Promise<void> {
+    await this.prisma.user.deleteMany({
+      where: { login },
+    });
+  }
+
   async updatePassword(id: string, updateUserDto: UpdateUserDto): Promise<User> {
-    const user = await this.getByIdOrThrow(id);
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id },
+      });
 
-    if (!(await isPasswordMatch(updateUserDto.oldPassword ?? '', user.password))) {
-      throw new ForbiddenException(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH);
-    }
+      if (!user) {
+        throw new NotFoundException(AppErrorMessages.USER_NOT_FOUND);
+      }
 
-    return this.userRepository.save({
-      ...user,
-      password: await hashPassword(updateUserDto.newPassword ?? ''),
-      updatedAt: getCurrentTimestamp(),
+      if (!(await isPasswordMatch(updateUserDto.oldPassword ?? '', user.password))) {
+        throw new ForbiddenException(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH);
+      }
+
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: {
+          password: await hashPassword(updateUserDto.newPassword ?? ''),
+          updatedAt: new Date(getCurrentTimestamp()),
+        },
+      });
+
+      return toUserModel(updatedUser);
     });
   }
 
@@ -74,20 +101,6 @@ export class UserService {
 
   async delete(id: string): Promise<void> {
     await this.getByIdOrThrow(id);
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.article.updateMany({
-        where: { authorId: id },
-        data: { authorId: null },
-      });
-
-      await tx.comment.deleteMany({
-        where: { authorId: id },
-      });
-
-      await tx.user.delete({
-        where: { id },
-      });
-    });
+    await this.userRepository.remove(id);
   }
 }

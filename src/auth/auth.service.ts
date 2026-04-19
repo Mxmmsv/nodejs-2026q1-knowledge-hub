@@ -1,14 +1,25 @@
-import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserRole as PrismaUserRole } from '@prisma/client';
-import { UserRole } from '../common/enums/user-role.enum';
-import { CreateUserDto } from '../user/dto';
+import { Prisma, User as PrismaUser } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { User } from '../user/models/user.model';
 import { UserService } from '../user/user.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { toDomainUserRole } from '../prisma/mappers/prisma-enum.mappers';
-import { AuthUser } from './auth.types';
-import { isAuthMode, isPasswordMatch, isTestLogin } from './auth.utils';
+import { SignupDto } from './dto';
+import { AuthUser, RefreshTokenPayload } from './auth.types';
+import {
+  getAccessTokenSecret,
+  getAccessTokenTtl,
+  getRefreshTokenSecret,
+  getRefreshTokenTtl,
+  hashToken,
+  isAuthMode,
+  isPasswordMatch,
+  isRefreshTokenPayload,
+  isTestLogin,
+} from './auth.utils';
 
 type TokenPair = {
   accessToken: string;
@@ -23,72 +34,44 @@ export class AuthService {
     private readonly userService: UserService,
   ) {}
 
-  async signup(createUserDto: CreateUserDto): Promise<User> {
-    if (isAuthMode() && isTestLogin(createUserDto.login)) {
+  async signup(signupDto: SignupDto): Promise<User> {
+    if (isAuthMode() && isTestLogin(signupDto.login)) {
       await this.prisma.user.deleteMany({
-        where: { login: createUserDto.login },
+        where: { login: signupDto.login },
       });
     }
 
-    const existingUser = await this.prisma.user.findFirst({
-      where: { login: createUserDto.login },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (existingUser) {
-      throw new ConflictException('User already exists');
-    }
-
-    const shouldCreateTestAdmin =
-      isAuthMode() &&
-      isTestLogin(createUserDto.login) &&
-      !(await this.prisma.user.findFirst({
-        where: {
-          login: { startsWith: 'TEST_' },
-          role: PrismaUserRole.ADMIN,
-        },
-      }));
-
-    return this.userService.create({
-      ...createUserDto,
-      role: shouldCreateTestAdmin ? (createUserDto.role ?? UserRole.ADMIN) : createUserDto.role,
-    });
+    return this.userService.create(signupDto);
   }
 
-  async login(login: string | undefined, password: string | undefined): Promise<TokenPair> {
-    if (!login || !password) {
-      throw new UnauthorizedException();
-    }
-
-    const user = await this.prisma.user.findFirst({
+  async login(login: string, password: string): Promise<TokenPair> {
+    const user = await this.prisma.user.findUnique({
       where: { login },
-      orderBy: { createdAt: 'desc' },
     });
 
     if (!user || !(await isPasswordMatch(password, user.password))) {
-      throw new UnauthorizedException();
+      throw new ForbiddenException(AppErrorMessages.AUTH_INVALID_CREDENTIALS);
     }
 
-    return this.createTokenPair({
-      userId: user.id,
-      login: user.login,
-      role: toDomainUserRole(user.role),
-    });
+    return this.issueTokenPair(user);
   }
 
-  async refresh(refreshToken: string | undefined): Promise<TokenPair> {
-    if (!refreshToken) {
-      throw new UnauthorizedException();
-    }
+  async refresh(refreshTokenInput: unknown): Promise<TokenPair> {
+    const refreshToken = this.extractRefreshTokenOrThrow(refreshTokenInput);
+    const payload = await this.verifyRefreshTokenOrThrow(refreshToken);
 
-    let payload: AuthUser;
+    const refreshSession = await this.prisma.refreshSession.findUnique({
+      where: { id: payload.jti },
+    });
 
-    try {
-      payload = await this.jwtService.verifyAsync<AuthUser>(refreshToken, {
-        secret: process.env.JWT_SECRET_REFRESH_KEY,
-      });
-    } catch {
-      throw new ForbiddenException();
+    if (
+      !refreshSession ||
+      refreshSession.userId !== payload.userId ||
+      refreshSession.revokedAt !== null ||
+      refreshSession.expiresAt.getTime() <= Date.now() ||
+      refreshSession.tokenHash !== hashToken(refreshToken)
+    ) {
+      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
     }
 
     const user = await this.prisma.user.findUnique({
@@ -96,30 +79,118 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new ForbiddenException();
+      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
     }
 
-    return this.createTokenPair({
-      userId: user.id,
-      login: user.login,
-      role: toDomainUserRole(user.role),
+    return this.prisma.$transaction(async (transactionClient) => {
+      await this.revokeRefreshSession(payload.jti, transactionClient);
+      return this.issueTokenPair(user, transactionClient);
     });
   }
 
-  private createTokenPair(payload: AuthUser): TokenPair {
-    const accessToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET_KEY,
-      expiresIn: (process.env.TOKEN_EXPIRE_TIME ?? '1h') as never,
+  async logout(refreshTokenInput: unknown): Promise<void> {
+    const refreshToken = this.extractRefreshTokenOrThrow(refreshTokenInput);
+    const payload = await this.verifyRefreshTokenOrThrow(refreshToken);
+    const refreshSession = await this.prisma.refreshSession.findUnique({
+      where: { id: payload.jti },
     });
 
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET_REFRESH_KEY,
-      expiresIn: (process.env.TOKEN_REFRESH_EXPIRE_TIME ?? '24h') as never,
+    if (
+      !refreshSession ||
+      refreshSession.userId !== payload.userId ||
+      refreshSession.revokedAt !== null ||
+      refreshSession.expiresAt.getTime() <= Date.now() ||
+      refreshSession.tokenHash !== hashToken(refreshToken)
+    ) {
+      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
+    }
+
+    await this.revokeRefreshSession(payload.jti, this.prisma);
+  }
+
+  private async issueTokenPair(
+    user: PrismaUser,
+    transactionClient: Prisma.TransactionClient = this.prisma,
+  ): Promise<TokenPair> {
+    const authUser = this.toAuthUser(user);
+    const accessToken = await this.jwtService.signAsync(authUser, {
+      secret: getAccessTokenSecret(),
+      expiresIn: getAccessTokenTtl() as never,
+    });
+    const refreshTokenPayload: RefreshTokenPayload = {
+      ...authUser,
+      jti: randomUUID(),
+    };
+    const refreshToken = await this.jwtService.signAsync(refreshTokenPayload, {
+      secret: getRefreshTokenSecret(),
+      expiresIn: getRefreshTokenTtl() as never,
+    });
+    const refreshTokenExpiresAt = this.extractTokenExpirationDate(refreshToken);
+
+    await transactionClient.refreshSession.create({
+      data: {
+        id: refreshTokenPayload.jti,
+        userId: user.id,
+        tokenHash: hashToken(refreshToken),
+        expiresAt: refreshTokenExpiresAt,
+      },
     });
 
     return {
       accessToken,
       refreshToken,
+    };
+  }
+
+  private async verifyRefreshTokenOrThrow(refreshToken: string): Promise<RefreshTokenPayload> {
+    try {
+      const payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(refreshToken, {
+        secret: getRefreshTokenSecret(),
+      });
+
+      if (!isRefreshTokenPayload(payload)) {
+        throw new Error('Invalid refresh token payload');
+      }
+
+      return payload;
+    } catch {
+      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
+    }
+  }
+
+  private extractRefreshTokenOrThrow(refreshToken: unknown): string {
+    if (typeof refreshToken !== 'string' || refreshToken.trim().length === 0) {
+      throw new UnauthorizedException(AppErrorMessages.AUTH_REFRESH_TOKEN_REQUIRED);
+    }
+
+    return refreshToken;
+  }
+
+  private extractTokenExpirationDate(token: string): Date {
+    const decodedToken = this.jwtService.decode(token);
+
+    if (!decodedToken || typeof decodedToken === 'string' || typeof decodedToken.exp !== 'number') {
+      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
+    }
+
+    return new Date(decodedToken.exp * 1000);
+  }
+
+  private async revokeRefreshSession(
+    refreshSessionId: string,
+    transactionClient: Prisma.TransactionClient | PrismaService,
+  ): Promise<void> {
+    await transactionClient.refreshSession.update({
+      where: { id: refreshSessionId },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  private toAuthUser(user: PrismaUser): AuthUser {
+    return {
+      userId: user.id,
+      login: user.login,
+      role: toDomainUserRole(user.role),
     };
   }
 }

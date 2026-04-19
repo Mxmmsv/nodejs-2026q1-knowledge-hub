@@ -1,33 +1,37 @@
 import { ArticleStatus, PrismaClient, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
+  const hashedPassword = await bcrypt.hash('SeedPass123!', 10);
+
   await prisma.comment.deleteMany();
   await prisma.article.deleteMany();
   await prisma.category.deleteMany();
   await prisma.tag.deleteMany();
+  await prisma.refreshSession.deleteMany();
   await prisma.user.deleteMany();
 
   const [adminUser, editorUser, viewerUser] = await Promise.all([
     prisma.user.create({
       data: {
         login: 'seed_admin',
-        password: 'SeedPass123!',
+        password: hashedPassword,
         role: UserRole.ADMIN,
       },
     }),
     prisma.user.create({
       data: {
         login: 'seed_editor',
-        password: 'SeedPass123!',
+        password: hashedPassword,
         role: UserRole.EDITOR,
       },
     }),
     prisma.user.create({
       data: {
         login: 'seed_viewer',
-        password: 'SeedPass123!',
+        password: hashedPassword,
         role: UserRole.VIEWER,
       },
     }),
