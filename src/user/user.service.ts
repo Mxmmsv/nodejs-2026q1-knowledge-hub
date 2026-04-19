@@ -57,6 +57,12 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
+  async removeByLoginIfExists(login: string): Promise<void> {
+    await this.prisma.user.deleteMany({
+      where: { login },
+    });
+  }
+
   async updatePassword(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
