@@ -28,8 +28,8 @@ model Article {
   updatedAt  DateTime      @updatedAt
   authorId   String?       @db.Uuid
   categoryId String?       @db.Uuid
-  author     User?         @relation(fields: [authorId], references: [id])
-  category   Category?     @relation(fields: [categoryId], references: [id])
+  author     User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  category   Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   comments   Comment[]
   tags       Tag[]         @relation("ArticleToTag")
 

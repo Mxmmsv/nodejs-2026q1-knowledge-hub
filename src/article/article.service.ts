@@ -4,7 +4,6 @@ import { ArticleStatus } from '../common/enums/article-status.enum';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
-import { PrismaService } from '../prisma/prisma.service';
 import { CreateArticleDto, FindArticlesQueryDto, UpdateArticleDto } from './dto';
 import { Article } from './models/article.model';
 import { ArticleRepository } from './repositories/article.repository';
@@ -12,7 +11,6 @@ import { ArticleRepository } from './repositories/article.repository';
 @Injectable()
 export class ArticleService {
   constructor(
-    private readonly prisma: PrismaService,
     @Inject(ArticleRepository)
     private readonly articleRepository: ArticleRepository,
   ) {}
@@ -68,15 +66,6 @@ export class ArticleService {
 
   async delete(id: string): Promise<void> {
     await this.getByIdOrThrow(id);
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.comment.deleteMany({
-        where: { articleId: id },
-      });
-
-      await tx.article.delete({
-        where: { id },
-      });
-    });
+    await this.articleRepository.remove(id);
   }
 }
