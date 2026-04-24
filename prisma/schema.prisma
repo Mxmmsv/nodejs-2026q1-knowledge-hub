@@ -28,8 +28,8 @@ model Article {
   updatedAt  DateTime      @updatedAt
   authorId   String?       @db.Uuid
   categoryId String?       @db.Uuid
-  author     User?         @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  category   Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  author     User?         @relation(fields: [authorId], references: [id])
+  category   Category?     @relation(fields: [categoryId], references: [id])
   comments   Comment[]
   tags       Tag[]         @relation("ArticleToTag")
 
@@ -61,13 +61,13 @@ model Tag {
 }
 
 model RefreshSession {
-  id        String   @id
+  id        String    @id
   tokenHash String
   expiresAt DateTime
   revokedAt DateTime?
-  createdAt DateTime @default(now())
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
