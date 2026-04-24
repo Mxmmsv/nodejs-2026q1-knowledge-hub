@@ -1,23 +1,6 @@
 name: mxmmsv-knowledge-hub
 
 services:
-  migrate:
-    image: mxmmsv-knowledge-hub-migrate
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: migrate
-    depends_on:
-      db:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-knowledge_hub}?schema=public&connection_limit=5
-    restart: "no"
-    networks:
-      - mxmmsv-knowledge-hub-network
-
   app:
     image: mxmmsv-knowledge-hub-app
     build:
@@ -27,8 +10,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     env_file:
       - .env
     environment:

@@ -26,7 +26,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Docker Compose now starts a dedicated `migrate` service before the API, so Prisma migrations are applied automatically on startup.
+Docker Compose starts PostgreSQL and the API. The Docker image generates Prisma Client during build.
 
 After startup, the API is available on `http://localhost:4000` and Swagger is available on `http://localhost:4000/doc`.
 ## Docker
@@ -37,7 +37,7 @@ Start the project with Docker Compose:
 docker compose up --build
 ```
 
-The `migrate` service runs `npx prisma migrate deploy` before the application starts. This means a fresh database gets the latest schema automatically when the stack boots.
+The Docker image runs `npx prisma generate` during build, before compiling the API.
 
 Start the project with Adminer enabled:
 
