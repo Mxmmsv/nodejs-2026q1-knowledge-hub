@@ -1,4 +1,4 @@
-import { Injectable, LoggerService } from '@nestjs/common';
+import { LoggerService } from '@nestjs/common';
 import { inspect } from 'util';
 import { AppLogLevel, ExtendedLogLevel, parseLogLevel, shouldLog } from './log-level';
 import { LogWriter, RotatingFileLogWriter, StreamLogWriter } from './log-writer';
@@ -13,7 +13,6 @@ interface LogRecord {
   meta?: unknown;
 }
 
-@Injectable()
 export class AppLoggerService implements LoggerService {
   private readonly configuredLevel: AppLogLevel;
   private readonly isProduction: boolean;
