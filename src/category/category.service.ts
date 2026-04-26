@@ -1,5 +1,6 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { NotFoundError } from '../common/errors';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto';
 import { Category } from './models/category.model';
@@ -24,7 +25,7 @@ export class CategoryService {
     const category = await this.categoryRepository.findById(id);
 
     if (!category) {
-      throw new NotFoundException(AppErrorMessages.CATEGORY_NOT_FOUND);
+      throw new NotFoundError(AppErrorMessages.CATEGORY_NOT_FOUND);
     }
 
     return category;

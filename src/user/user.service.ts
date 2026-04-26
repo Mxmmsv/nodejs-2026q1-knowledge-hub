@@ -1,6 +1,7 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { ForbiddenError, NotFoundError, ValidationError } from '../common/errors';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
@@ -31,7 +32,7 @@ export class UserService {
     const user = await this.userRepository.findById(id);
 
     if (!user) {
-      throw new NotFoundException(AppErrorMessages.USER_NOT_FOUND);
+      throw new NotFoundError(AppErrorMessages.USER_NOT_FOUND);
     }
 
     return user;
@@ -43,7 +44,7 @@ export class UserService {
     });
 
     if (existingUser) {
-      throw new BadRequestException(AppErrorMessages.USER_ALREADY_EXISTS);
+      throw new ValidationError(AppErrorMessages.USER_ALREADY_EXISTS);
     }
 
     const user: User = {
@@ -70,11 +71,11 @@ export class UserService {
       });
 
       if (!user) {
-        throw new NotFoundException(AppErrorMessages.USER_NOT_FOUND);
+        throw new NotFoundError(AppErrorMessages.USER_NOT_FOUND);
       }
 
       if (!(await isPasswordMatch(updateUserDto.oldPassword ?? '', user.password))) {
-        throw new ForbiddenException(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH);
+        throw new ForbiddenError(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH);
       }
 
       const updatedUser = await tx.user.update({

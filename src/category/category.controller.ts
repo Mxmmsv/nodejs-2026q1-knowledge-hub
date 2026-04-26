@@ -1,15 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  ForbiddenException,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -20,6 +9,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
+import { ForbiddenError } from '../common/errors';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -95,7 +85,7 @@ export class CategoryController {
     @CurrentUser() currentUser?: AuthUser,
   ): Promise<CategoryResponseDto> {
     if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
-      throw new ForbiddenException();
+      throw new ForbiddenError();
     }
 
     return toCategoryResponse(await this.categoryService.create(createCategoryDto));
@@ -132,7 +122,7 @@ export class CategoryController {
     @CurrentUser() currentUser?: AuthUser,
   ): Promise<CategoryResponseDto> {
     if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
-      throw new ForbiddenException();
+      throw new ForbiddenError();
     }
 
     return toCategoryResponse(await this.categoryService.update(id, updateCategoryDto));
@@ -163,7 +153,7 @@ export class CategoryController {
   @Delete(':id')
   delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
     if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
-      throw new ForbiddenException();
+      throw new ForbiddenError();
     }
 
     return this.categoryService.delete(id);

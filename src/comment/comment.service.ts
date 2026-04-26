@@ -1,5 +1,6 @@
-import { Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { NotFoundError } from '../common/errors';
 import { createEntityId } from '../common/utils/create-entity-id';
 import { getCurrentTimestamp } from '../common/utils/get-current-timestamp';
 import { ArticleService } from '../article/article.service';
@@ -29,7 +30,7 @@ export class CommentService {
     const comment = await this.commentRepository.findById(id);
 
     if (!comment) {
-      throw new NotFoundException(AppErrorMessages.COMMENT_NOT_FOUND);
+      throw new NotFoundError(AppErrorMessages.COMMENT_NOT_FOUND);
     }
 
     return comment;

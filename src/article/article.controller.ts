@@ -1,16 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  ForbiddenException,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -21,6 +9,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
+import { ForbiddenError } from '../common/errors';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -115,14 +104,14 @@ export class ArticleController {
 
     if (isAuthMode()) {
       if (currentUser?.role === UserRole.VIEWER) {
-        throw new ForbiddenException();
+        throw new ForbiddenError();
       }
 
       if (currentUser?.role === UserRole.EDITOR) {
         const authorId = createArticleDto.authorId ?? currentUser.userId;
 
         if (authorId !== currentUser.userId) {
-          throw new ForbiddenException();
+          throw new ForbiddenError();
         }
 
         payload = {
@@ -167,14 +156,14 @@ export class ArticleController {
   ): Promise<ArticleResponseDto> {
     if (isAuthMode()) {
       if (currentUser?.role === UserRole.VIEWER) {
-        throw new ForbiddenException();
+        throw new ForbiddenError();
       }
 
       if (currentUser?.role === UserRole.EDITOR) {
         const article = await this.articleService.getByIdOrThrow(id);
 
         if (article.authorId !== currentUser.userId) {
-          throw new ForbiddenException();
+          throw new ForbiddenError();
         }
       }
     }
@@ -210,7 +199,7 @@ export class ArticleController {
   @Delete(':id')
   delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
     if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
-      throw new ForbiddenException();
+      throw new ForbiddenError();
     }
 
     return this.articleService.delete(id);

@@ -1,15 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  ForbiddenException,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -21,6 +10,7 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
+import { ForbiddenError } from '../common/errors';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -119,14 +109,14 @@ export class CommentController {
 
     if (isAuthMode()) {
       if (currentUser?.role === UserRole.VIEWER) {
-        throw new ForbiddenException();
+        throw new ForbiddenError();
       }
 
       if (currentUser?.role === UserRole.EDITOR) {
         const authorId = createCommentDto.authorId ?? currentUser.userId;
 
         if (authorId !== currentUser.userId) {
-          throw new ForbiddenException();
+          throw new ForbiddenError();
         }
 
         payload = {
@@ -165,14 +155,14 @@ export class CommentController {
   async delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
     if (isAuthMode()) {
       if (currentUser?.role === UserRole.VIEWER) {
-        throw new ForbiddenException();
+        throw new ForbiddenError();
       }
 
       if (currentUser?.role === UserRole.EDITOR) {
         const comment = await this.commentService.getByIdOrThrow(id);
 
         if (comment.authorId !== currentUser.userId) {
-          throw new ForbiddenException();
+          throw new ForbiddenError();
         }
       }
     }

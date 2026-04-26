@@ -4,11 +4,15 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { AppLoggerService } from './common/logger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const logger = app.get(AppLoggerService);
   const port = Number.parseInt(process.env.PORT ?? '4000', 10);
 
+  app.useLogger(logger);
+  app.flushLogs();
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -16,7 +20,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(logger));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Knowledge Hub')

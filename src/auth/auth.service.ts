@@ -1,8 +1,9 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma, User as PrismaUser } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { ForbiddenError, UnauthorizedError } from '../common/errors';
 import { User } from '../user/models/user.model';
 import { UserService } from '../user/user.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -50,7 +51,7 @@ export class AuthService {
     });
 
     if (!user || !(await isPasswordMatch(password, user.password))) {
-      throw new ForbiddenException(AppErrorMessages.AUTH_INVALID_CREDENTIALS);
+      throw new ForbiddenError(AppErrorMessages.AUTH_INVALID_CREDENTIALS);
     }
 
     return this.issueTokenPair(user);
@@ -71,7 +72,7 @@ export class AuthService {
       refreshSession.expiresAt.getTime() <= Date.now() ||
       refreshSession.tokenHash !== hashToken(refreshToken)
     ) {
-      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
+      throw new ForbiddenError(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
     }
 
     const user = await this.prisma.user.findUnique({
@@ -79,7 +80,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
+      throw new ForbiddenError(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
     }
 
     return this.prisma.$transaction(async (transactionClient) => {
@@ -102,7 +103,7 @@ export class AuthService {
       refreshSession.expiresAt.getTime() <= Date.now() ||
       refreshSession.tokenHash !== hashToken(refreshToken)
     ) {
-      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
+      throw new ForbiddenError(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
     }
 
     await this.revokeRefreshSession(payload.jti, this.prisma);
@@ -154,13 +155,13 @@ export class AuthService {
 
       return payload;
     } catch {
-      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
+      throw new ForbiddenError(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
     }
   }
 
   private extractRefreshTokenOrThrow(refreshToken: unknown): string {
     if (typeof refreshToken !== 'string' || refreshToken.trim().length === 0) {
-      throw new UnauthorizedException(AppErrorMessages.AUTH_REFRESH_TOKEN_REQUIRED);
+      throw new UnauthorizedError(AppErrorMessages.AUTH_REFRESH_TOKEN_REQUIRED);
     }
 
     return refreshToken;
@@ -170,7 +171,7 @@ export class AuthService {
     const decodedToken = this.jwtService.decode(token);
 
     if (!decodedToken || typeof decodedToken === 'string' || typeof decodedToken.exp !== 'number') {
-      throw new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
+      throw new ForbiddenError(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID);
     }
 
     return new Date(decodedToken.exp * 1000);
