@@ -1,9 +1,9 @@
-import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { UnauthorizedError } from '../common/errors';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { AccessTokenAuthGuard } from './access-token-auth.guard';
 import { createHttpExecutionContext } from '../../test/unit/mock-execution-context';
@@ -71,7 +71,7 @@ describe('AccessTokenAuthGuard', () => {
     reflector.getAllAndOverride.mockReturnValue(false);
 
     await expect(guard.canActivate(createHttpExecutionContext({ headers: {} }))).rejects.toThrow(
-      new UnauthorizedException(AppErrorMessages.AUTH_ACCESS_TOKEN_REQUIRED),
+      new UnauthorizedError(AppErrorMessages.AUTH_ACCESS_TOKEN_REQUIRED),
     );
   });
 
@@ -81,7 +81,7 @@ describe('AccessTokenAuthGuard', () => {
 
     await expect(
       guard.canActivate(createHttpExecutionContext({ headers: { authorization: 'Token access-token' } })),
-    ).rejects.toThrow(new UnauthorizedException(AppErrorMessages.AUTH_BEARER_TOKEN_INVALID));
+    ).rejects.toThrow(new UnauthorizedError(AppErrorMessages.AUTH_BEARER_TOKEN_INVALID));
   });
 
   it('rejects empty bearer tokens', async () => {
@@ -90,7 +90,7 @@ describe('AccessTokenAuthGuard', () => {
 
     await expect(
       guard.canActivate(createHttpExecutionContext({ headers: { authorization: 'Bearer   ' } })),
-    ).rejects.toThrow(new UnauthorizedException(AppErrorMessages.AUTH_ACCESS_TOKEN_REQUIRED));
+    ).rejects.toThrow(new UnauthorizedError(AppErrorMessages.AUTH_ACCESS_TOKEN_REQUIRED));
   });
 
   it('rejects expired, tampered, or malformed token payloads', async () => {
@@ -100,12 +100,12 @@ describe('AccessTokenAuthGuard', () => {
 
     await expect(
       guard.canActivate(createHttpExecutionContext({ headers: { authorization: 'Bearer invalid-token' } })),
-    ).rejects.toThrow(new UnauthorizedException(AppErrorMessages.AUTH_ACCESS_TOKEN_INVALID));
+    ).rejects.toThrow(new UnauthorizedError(AppErrorMessages.AUTH_ACCESS_TOKEN_INVALID));
 
     jwtService.verifyAsync.mockRejectedValue(new Error('expired'));
 
     await expect(
       guard.canActivate(createHttpExecutionContext({ headers: { authorization: 'Bearer expired-token' } })),
-    ).rejects.toThrow(new UnauthorizedException(AppErrorMessages.AUTH_ACCESS_TOKEN_INVALID));
+    ).rejects.toThrow(new UnauthorizedError(AppErrorMessages.AUTH_ACCESS_TOKEN_INVALID));
   });
 });

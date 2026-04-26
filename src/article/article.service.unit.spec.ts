@@ -1,8 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { ArticleStatus } from '../common/enums/article-status.enum';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { NotFoundError, ValidationError } from '../common/errors';
 import { Article } from './models/article.model';
 import { ArticleRepository } from './repositories/article.repository';
 import { InMemoryArticleRepository } from './repositories/in-memory-article.repository';
@@ -108,11 +108,11 @@ describe('ArticleService', () => {
     expect(articleRepository.findAll).toHaveBeenCalledWith(filters);
   });
 
-  it('throws NotFoundException when an article does not exist', async () => {
+  it('throws NotFoundError when an article does not exist', async () => {
     articleRepository.findById.mockResolvedValue(undefined);
 
     await expect(service.getByIdOrThrow('missing')).rejects.toThrow(
-      new NotFoundException(AppErrorMessages.ARTICLE_NOT_FOUND),
+      new NotFoundError(AppErrorMessages.ARTICLE_NOT_FOUND),
     );
   });
 
@@ -182,7 +182,7 @@ describe('ArticleService', () => {
     articleRepository.findById.mockResolvedValue(existing);
 
     await expect(service.update(existing.id, { status: nextStatus })).rejects.toThrow(
-      new BadRequestException(AppErrorMessages.ARTICLE_STATUS_TRANSITION_INVALID),
+      new ValidationError(AppErrorMessages.ARTICLE_STATUS_TRANSITION_INVALID),
     );
     expect(articleRepository.save).not.toHaveBeenCalled();
   });

@@ -1,6 +1,7 @@
 import { BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createArgumentsHost } from '../../../test/unit/mock-execution-context';
+import { ForbiddenError } from '../errors';
 import { HttpExceptionFilter } from './http-exception.filter';
 
 describe('HttpExceptionFilter', () => {
@@ -9,9 +10,15 @@ describe('HttpExceptionFilter', () => {
     status: ReturnType<typeof vi.fn>;
     json: ReturnType<typeof vi.fn>;
   };
+  let logger: {
+    error: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
-    filter = new HttpExceptionFilter();
+    logger = {
+      error: vi.fn(),
+    };
+    filter = new HttpExceptionFilter(logger as never);
     response = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn(),
@@ -27,6 +34,12 @@ describe('HttpExceptionFilter', () => {
       error: 'Not Found',
       message: 'Missing item',
     });
+    expect(logger.error).toHaveBeenCalledWith(
+      'Missing item',
+      expect.any(String),
+      HttpExceptionFilter.name,
+      expect.objectContaining({ statusCode: HttpStatus.NOT_FOUND }),
+    );
   });
 
   it('formats object exception responses with validation message arrays', () => {
@@ -64,5 +77,35 @@ describe('HttpExceptionFilter', () => {
       error: 'Custom Error',
       message: 'Custom message',
     });
+  });
+
+  it('formats custom app errors', () => {
+    filter.catch(new ForbiddenError('No access'), createArgumentsHost(response));
+
+    expect(response.status).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
+    expect(response.json).toHaveBeenCalledWith({
+      statusCode: HttpStatus.FORBIDDEN,
+      error: 'Forbidden',
+      message: 'No access',
+    });
+  });
+
+  it('hides unknown errors behind a generic 500 response', () => {
+    const exception = new Error('database password leaked');
+
+    filter.catch(exception, createArgumentsHost(response));
+
+    expect(response.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR);
+    expect(response.json).toHaveBeenCalledWith({
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      error: 'Internal Server Error',
+      message: 'An unexpected error occurred',
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      'database password leaked',
+      exception.stack,
+      HttpExceptionFilter.name,
+      expect.objectContaining({ statusCode: HttpStatus.INTERNAL_SERVER_ERROR }),
+    );
   });
 });

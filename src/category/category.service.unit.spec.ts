@@ -1,7 +1,7 @@
-import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { NotFoundError } from '../common/errors';
 import { Category } from './models/category.model';
 import { CategoryRepository } from './repositories/category.repository';
 import { CategoryService } from './category.service';
@@ -54,7 +54,7 @@ describe('CategoryService', () => {
     categoryRepository.findById.mockResolvedValue(undefined);
 
     await expect(service.getByIdOrThrow('missing')).rejects.toThrow(
-      new NotFoundException(AppErrorMessages.CATEGORY_NOT_FOUND),
+      new NotFoundError(AppErrorMessages.CATEGORY_NOT_FOUND),
     );
   });
 

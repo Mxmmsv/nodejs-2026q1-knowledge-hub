@@ -1,10 +1,10 @@
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { ForbiddenError, UnauthorizedError } from '../common/errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserService } from '../user/user.service';
 import { hashPassword, hashToken } from './auth.utils';
@@ -100,7 +100,7 @@ describe('AuthService', () => {
     prisma.user.findUnique.mockResolvedValue(undefined);
 
     await expect(service.login('missing', 'secret')).rejects.toThrow(
-      new ForbiddenException(AppErrorMessages.AUTH_INVALID_CREDENTIALS),
+      new ForbiddenError(AppErrorMessages.AUTH_INVALID_CREDENTIALS),
     );
   });
 
@@ -134,7 +134,7 @@ describe('AuthService', () => {
 
   it('rejects missing refresh tokens', async () => {
     await expect(service.refresh(undefined)).rejects.toThrow(
-      new UnauthorizedException(AppErrorMessages.AUTH_REFRESH_TOKEN_REQUIRED),
+      new UnauthorizedError(AppErrorMessages.AUTH_REFRESH_TOKEN_REQUIRED),
     );
   });
 
@@ -142,7 +142,7 @@ describe('AuthService', () => {
     jwtService.verifyAsync.mockRejectedValue(new Error('bad token'));
 
     await expect(service.refresh('tampered-token')).rejects.toThrow(
-      new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID),
+      new ForbiddenError(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID),
     );
   });
 
@@ -164,7 +164,7 @@ describe('AuthService', () => {
     });
 
     await expect(service.refresh('refresh-token')).rejects.toThrow(
-      new ForbiddenException(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID),
+      new ForbiddenError(AppErrorMessages.AUTH_REFRESH_TOKEN_INVALID),
     );
   });
 

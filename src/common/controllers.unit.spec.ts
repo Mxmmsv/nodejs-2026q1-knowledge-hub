@@ -1,4 +1,3 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppController } from '../app.controller';
@@ -6,6 +5,7 @@ import { ArticleController } from '../article/article.controller';
 import { ArticleService } from '../article/article.service';
 import { ArticleStatus } from './enums/article-status.enum';
 import { UserRole } from './enums/user-role.enum';
+import { ForbiddenError, ValidationError } from './errors';
 import { AuthUser } from '../auth/auth.types';
 import { CategoryController } from '../category/category.controller';
 import { CategoryService } from '../category/category.service';
@@ -121,7 +121,7 @@ describe('ArticleController', () => {
   it('enforces create RBAC and assigns editor authorship', async () => {
     process.env.TEST_MODE = 'auth';
 
-    await expect(controller.create({ title: 'A', content: 'B' }, viewerUser)).rejects.toThrow(ForbiddenException);
+    await expect(controller.create({ title: 'A', content: 'B' }, viewerUser)).rejects.toThrow(ForbiddenError);
 
     await controller.create({ title: 'A', content: 'B' }, editorUser);
     expect(articleService.create).toHaveBeenCalledWith({
@@ -131,7 +131,7 @@ describe('ArticleController', () => {
     });
 
     await expect(controller.create({ title: 'A', content: 'B', authorId: 'other-user' }, editorUser)).rejects.toThrow(
-      ForbiddenException,
+      ForbiddenError,
     );
   });
 
@@ -139,7 +139,7 @@ describe('ArticleController', () => {
     process.env.TEST_MODE = 'auth';
     articleService.getByIdOrThrow.mockResolvedValue(articleFixture({ authorId: 'other-user' }));
 
-    await expect(controller.update('article-id', { title: 'A' }, editorUser)).rejects.toThrow(ForbiddenException);
+    await expect(controller.update('article-id', { title: 'A' }, editorUser)).rejects.toThrow(ForbiddenError);
 
     await controller.update('article-id', { title: 'A', authorId: 'attacker-id' }, adminUser);
 
@@ -149,7 +149,7 @@ describe('ArticleController', () => {
   it('enforces delete RBAC', async () => {
     process.env.TEST_MODE = 'auth';
 
-    expect(() => controller.delete('article-id', viewerUser)).toThrow(ForbiddenException);
+    expect(() => controller.delete('article-id', viewerUser)).toThrow(ForbiddenError);
     await controller.delete('article-id', adminUser);
 
     expect(articleService.delete).toHaveBeenCalledWith('article-id');
@@ -204,7 +204,7 @@ describe('UserController', () => {
     process.env.TEST_MODE = 'auth';
 
     await expect(controller.create({ login: 'new-user', password: 'secret' }, viewerUser)).rejects.toThrow(
-      ForbiddenException,
+      ForbiddenError,
     );
     await controller.create({ login: 'TEST_new-user', password: 'secret' }, adminUser);
 
@@ -213,17 +213,17 @@ describe('UserController', () => {
   });
 
   it('handles role and password updates with auth constraints', async () => {
-    await expect(controller.updatePassword('user-id', { role: UserRole.ADMIN })).rejects.toThrow(BadRequestException);
+    await expect(controller.updatePassword('user-id', { role: UserRole.ADMIN })).rejects.toThrow(ValidationError);
 
     process.env.TEST_MODE = 'auth';
 
     await expect(controller.updatePassword('user-id', { role: UserRole.ADMIN }, viewerUser)).rejects.toThrow(
-      ForbiddenException,
+      ForbiddenError,
     );
     await controller.updatePassword('user-id', { role: UserRole.ADMIN }, adminUser);
     await expect(
       controller.updatePassword('other-user-id', { oldPassword: 'old', newPassword: 'new' }, viewerUser),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenError);
     await controller.updatePassword(viewerUser.userId, { oldPassword: 'old', newPassword: 'new' }, viewerUser);
 
     expect(userService.updateRole).toHaveBeenCalledWith('user-id', UserRole.ADMIN);
@@ -236,7 +236,7 @@ describe('UserController', () => {
   it('enforces delete RBAC', async () => {
     process.env.TEST_MODE = 'auth';
 
-    expect(() => controller.delete('user-id', viewerUser)).toThrow(ForbiddenException);
+    expect(() => controller.delete('user-id', viewerUser)).toThrow(ForbiddenError);
     await controller.delete('user-id', adminUser);
 
     expect(userService.delete).toHaveBeenCalledWith('user-id');
@@ -284,12 +284,12 @@ describe('CategoryController', () => {
     process.env.TEST_MODE = 'auth';
 
     await expect(controller.create({ name: 'Node', description: 'Runtime' }, viewerUser)).rejects.toThrow(
-      ForbiddenException,
+      ForbiddenError,
     );
     await expect(
       controller.update('category-id', { name: 'Node', description: 'Runtime' }, viewerUser),
-    ).rejects.toThrow(ForbiddenException);
-    expect(() => controller.delete('category-id', viewerUser)).toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenError);
+    expect(() => controller.delete('category-id', viewerUser)).toThrow(ForbiddenError);
 
     await controller.create({ name: 'Node', description: 'Runtime' }, adminUser);
     await controller.update('category-id', { name: 'Node', description: 'Runtime' }, adminUser);
@@ -340,12 +340,12 @@ describe('CommentController', () => {
     process.env.TEST_MODE = 'auth';
 
     await expect(controller.create({ content: 'Text', articleId: 'article-id' }, viewerUser)).rejects.toThrow(
-      ForbiddenException,
+      ForbiddenError,
     );
     await controller.create({ content: 'Text', articleId: 'article-id' }, editorUser);
     await expect(
       controller.create({ content: 'Text', articleId: 'article-id', authorId: 'other-user' }, editorUser),
-    ).rejects.toThrow(ForbiddenException);
+    ).rejects.toThrow(ForbiddenError);
 
     expect(commentService.create).toHaveBeenCalledWith({
       content: 'Text',
@@ -357,10 +357,10 @@ describe('CommentController', () => {
   it('enforces delete RBAC and editor ownership', async () => {
     process.env.TEST_MODE = 'auth';
 
-    await expect(controller.delete('comment-id', viewerUser)).rejects.toThrow(ForbiddenException);
+    await expect(controller.delete('comment-id', viewerUser)).rejects.toThrow(ForbiddenError);
 
     commentService.getByIdOrThrow.mockResolvedValue(commentFixture({ authorId: 'other-user' }));
-    await expect(controller.delete('comment-id', editorUser)).rejects.toThrow(ForbiddenException);
+    await expect(controller.delete('comment-id', editorUser)).rejects.toThrow(ForbiddenError);
 
     commentService.getByIdOrThrow.mockResolvedValue(commentFixture({ authorId: editorUser.userId }));
     await controller.delete('comment-id', editorUser);

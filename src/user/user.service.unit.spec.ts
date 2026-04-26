@@ -1,10 +1,10 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashPassword, isPasswordMatch } from '../auth/auth.utils';
 import { UserRole } from '../common/enums/user-role.enum';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { ForbiddenError, NotFoundError, ValidationError } from '../common/errors';
 import { PrismaService } from '../prisma/prisma.service';
 import { User } from './models/user.model';
 import { UserRepository } from './repositories/user.repository';
@@ -98,7 +98,7 @@ describe('UserService', () => {
     prisma.user.findUnique.mockResolvedValue(prismaUserFixture());
 
     await expect(service.create({ login: 'user', password: 'secret' })).rejects.toThrow(
-      new BadRequestException(AppErrorMessages.USER_ALREADY_EXISTS),
+      new ValidationError(AppErrorMessages.USER_ALREADY_EXISTS),
     );
     expect(userRepository.save).not.toHaveBeenCalled();
   });
@@ -106,9 +106,7 @@ describe('UserService', () => {
   it('throws when user is not found by id', async () => {
     userRepository.findById.mockResolvedValue(undefined);
 
-    await expect(service.getByIdOrThrow('missing')).rejects.toThrow(
-      new NotFoundException(AppErrorMessages.USER_NOT_FOUND),
-    );
+    await expect(service.getByIdOrThrow('missing')).rejects.toThrow(new NotFoundError(AppErrorMessages.USER_NOT_FOUND));
   });
 
   it('updates a user role after loading the user', async () => {
@@ -166,7 +164,7 @@ describe('UserService', () => {
         oldPassword: 'old-secret',
         newPassword: 'new-secret',
       }),
-    ).rejects.toThrow(new NotFoundException(AppErrorMessages.USER_NOT_FOUND));
+    ).rejects.toThrow(new NotFoundError(AppErrorMessages.USER_NOT_FOUND));
     expect(tx.user.update).not.toHaveBeenCalled();
   });
 
@@ -184,7 +182,7 @@ describe('UserService', () => {
         oldPassword: 'wrong-secret',
         newPassword: 'new-secret',
       }),
-    ).rejects.toThrow(new ForbiddenException(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH));
+    ).rejects.toThrow(new ForbiddenError(AppErrorMessages.USER_OLD_PASSWORD_MISMATCH));
     expect(tx.user.update).not.toHaveBeenCalled();
   });
 
