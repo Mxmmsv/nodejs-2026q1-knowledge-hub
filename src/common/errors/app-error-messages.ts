@@ -7,6 +7,7 @@ export const AppErrorMessages = {
   AUTH_REFRESH_TOKEN_INVALID: 'Refresh token is invalid or expired',
   AUTH_REFRESH_TOKEN_REQUIRED: 'Refresh token is required',
   ARTICLE_NOT_FOUND: 'Article not found',
+  ARTICLE_STATUS_TRANSITION_INVALID: 'Invalid article status transition',
   CATEGORY_NOT_FOUND: 'Category not found',
   COMMENT_NOT_FOUND: 'Comment not found',
   INVALID_UUID: 'Invalid UUID',

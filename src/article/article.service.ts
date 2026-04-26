@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
 import { ArticleStatus } from '../common/enums/article-status.enum';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
@@ -50,6 +50,7 @@ export class ArticleService {
 
   async update(id: string, updateArticleDto: UpdateArticleDto): Promise<Article> {
     const article = await this.getByIdOrThrow(id);
+    this.validateStatusTransition(article.status, updateArticleDto.status);
 
     return this.articleRepository.save({
       ...article,
@@ -67,5 +68,21 @@ export class ArticleService {
   async delete(id: string): Promise<void> {
     await this.getByIdOrThrow(id);
     await this.articleRepository.remove(id);
+  }
+
+  private validateStatusTransition(currentStatus: ArticleStatus, nextStatus?: ArticleStatus): void {
+    if (!nextStatus || nextStatus === currentStatus) {
+      return;
+    }
+
+    const allowedTransitions: Record<ArticleStatus, ArticleStatus[]> = {
+      [ArticleStatus.DRAFT]: [ArticleStatus.PUBLISHED],
+      [ArticleStatus.PUBLISHED]: [ArticleStatus.ARCHIVED],
+      [ArticleStatus.ARCHIVED]: [],
+    };
+
+    if (!allowedTransitions[currentStatus].includes(nextStatus)) {
+      throw new BadRequestException(AppErrorMessages.ARTICLE_STATUS_TRANSITION_INVALID);
+    }
   }
 }
