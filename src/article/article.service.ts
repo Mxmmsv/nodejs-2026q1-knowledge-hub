@@ -1,5 +1,6 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { NotFoundError, ValidationError } from '../common/errors';
 import { ArticleStatus } from '../common/enums/article-status.enum';
 import { createAuditTimestamps } from '../common/utils/create-audit-timestamps';
 import { createEntityId } from '../common/utils/create-entity-id';
@@ -27,7 +28,7 @@ export class ArticleService {
     const article = await this.articleRepository.findById(id);
 
     if (!article) {
-      throw new NotFoundException(AppErrorMessages.ARTICLE_NOT_FOUND);
+      throw new NotFoundError(AppErrorMessages.ARTICLE_NOT_FOUND);
     }
 
     return article;
@@ -82,7 +83,7 @@ export class ArticleService {
     };
 
     if (!allowedTransitions[currentStatus].includes(nextStatus)) {
-      throw new BadRequestException(AppErrorMessages.ARTICLE_STATUS_TRANSITION_INVALID);
+      throw new ValidationError(AppErrorMessages.ARTICLE_STATUS_TRANSITION_INVALID);
     }
   }
 }

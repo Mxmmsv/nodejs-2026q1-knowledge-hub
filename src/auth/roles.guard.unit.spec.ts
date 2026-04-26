@@ -1,7 +1,7 @@
-import { ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserRole } from '../common/enums/user-role.enum';
+import { ForbiddenError } from '../common/errors';
 import { createHttpExecutionContext } from '../../test/unit/mock-execution-context';
 import { RolesGuard } from './roles.guard';
 
@@ -43,7 +43,7 @@ describe('RolesGuard', () => {
   it('rejects missing users and insufficient roles', () => {
     reflector.getAllAndOverride.mockReturnValue([UserRole.ADMIN]);
 
-    expect(() => guard.canActivate(createHttpExecutionContext({}))).toThrow(ForbiddenException);
+    expect(() => guard.canActivate(createHttpExecutionContext({}))).toThrow(ForbiddenError);
     expect(() =>
       guard.canActivate(
         createHttpExecutionContext({
@@ -54,6 +54,6 @@ describe('RolesGuard', () => {
           },
         }),
       ),
-    ).toThrow(ForbiddenException);
+    ).toThrow(ForbiddenError);
   });
 });

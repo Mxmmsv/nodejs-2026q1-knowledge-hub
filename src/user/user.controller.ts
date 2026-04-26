@@ -1,16 +1,4 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Delete,
-  ForbiddenException,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-  Put,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -22,6 +10,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
+import { ForbiddenError, ValidationError } from '../common/errors';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
 import { createErrorResponse } from '../common/swagger/create-error-response';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -94,7 +83,7 @@ export class UserController {
   @Post()
   async create(@Body() createUserDto: CreateUserDto, @CurrentUser() currentUser?: AuthUser): Promise<UserResponseDto> {
     if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
-      throw new ForbiddenException();
+      throw new ForbiddenError();
     }
 
     if (isTestLogin(createUserDto.login)) {
@@ -146,18 +135,18 @@ export class UserController {
   ): Promise<UserResponseDto> {
     if (updateUserDto.role !== undefined) {
       if (!isAuthMode()) {
-        throw new BadRequestException('Role updates are available only in auth mode');
+        throw new ValidationError('Role updates are available only in auth mode');
       }
 
       if (currentUser?.role !== UserRole.ADMIN) {
-        throw new ForbiddenException();
+        throw new ForbiddenError();
       }
 
       return toUserResponse(await this.userService.updateRole(id, updateUserDto.role));
     }
 
     if (isAuthMode() && currentUser?.role !== UserRole.ADMIN && currentUser?.userId !== id) {
-      throw new ForbiddenException();
+      throw new ForbiddenError();
     }
 
     return toUserResponse(await this.userService.updatePassword(id, updateUserDto));
@@ -188,7 +177,7 @@ export class UserController {
   @Delete(':id')
   delete(@Param('id', UuidParamPipe) id: string, @CurrentUser() currentUser?: AuthUser): Promise<void> {
     if (isAuthMode() && currentUser?.role !== UserRole.ADMIN) {
-      throw new ForbiddenException();
+      throw new ForbiddenError();
     }
 
     return this.userService.delete(id);

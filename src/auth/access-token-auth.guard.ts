@@ -1,8 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { UnauthorizedError } from '../common/errors';
 import { AuthUser } from './auth.types';
 import { getAccessTokenSecret, isAuthMode, isAuthUserPayload } from './auth.utils';
 import { IS_PUBLIC_KEY } from './public.decorator';
@@ -36,17 +37,17 @@ export class AccessTokenAuthGuard implements CanActivate {
     const authorizationHeader = request.headers.authorization;
 
     if (!authorizationHeader) {
-      throw new UnauthorizedException(AppErrorMessages.AUTH_ACCESS_TOKEN_REQUIRED);
+      throw new UnauthorizedError(AppErrorMessages.AUTH_ACCESS_TOKEN_REQUIRED);
     }
 
     if (!authorizationHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException(AppErrorMessages.AUTH_BEARER_TOKEN_INVALID);
+      throw new UnauthorizedError(AppErrorMessages.AUTH_BEARER_TOKEN_INVALID);
     }
 
     const accessToken = authorizationHeader.slice('Bearer '.length).trim();
 
     if (!accessToken) {
-      throw new UnauthorizedException(AppErrorMessages.AUTH_ACCESS_TOKEN_REQUIRED);
+      throw new UnauthorizedError(AppErrorMessages.AUTH_ACCESS_TOKEN_REQUIRED);
     }
 
     try {
@@ -60,7 +61,7 @@ export class AccessTokenAuthGuard implements CanActivate {
 
       request.user = payload;
     } catch {
-      throw new UnauthorizedException(AppErrorMessages.AUTH_ACCESS_TOKEN_INVALID);
+      throw new UnauthorizedError(AppErrorMessages.AUTH_ACCESS_TOKEN_INVALID);
     }
 
     return true;

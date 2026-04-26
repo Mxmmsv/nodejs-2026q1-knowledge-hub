@@ -1,8 +1,9 @@
-import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { UnprocessableEntityException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ArticleService } from '../article/article.service';
 import { AppErrorMessages } from '../common/errors/app-error-messages';
+import { NotFoundError } from '../common/errors';
 import { Comment } from './models/comment.model';
 import { CommentRepository } from './repositories/comment.repository';
 import { CommentService } from './comment.service';
@@ -70,7 +71,7 @@ describe('CommentService', () => {
     commentRepository.findById.mockResolvedValue(undefined);
 
     await expect(service.getByIdOrThrow('missing')).rejects.toThrow(
-      new NotFoundException(AppErrorMessages.COMMENT_NOT_FOUND),
+      new NotFoundError(AppErrorMessages.COMMENT_NOT_FOUND),
     );
   });
 
