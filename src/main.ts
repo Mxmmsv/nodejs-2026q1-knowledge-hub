@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AppLoggerService } from './common/logger';
+import { registerProcessErrorHandlers } from './common/process/process-error-handlers';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -13,6 +14,7 @@ async function bootstrap() {
 
   app.useLogger(logger);
   app.flushLogs();
+  registerProcessErrorHandlers(app, logger);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
