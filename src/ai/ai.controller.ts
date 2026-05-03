@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiBadRequestResponse,
   ApiExtraModels,
   ApiInternalServerErrorResponse,
@@ -8,6 +9,7 @@ import {
   ApiServiceUnavailableResponse,
   ApiTags,
   ApiTooManyRequestsResponse,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../common/dto/error-response.dto';
 import { UuidParamPipe } from '../common/pipes/uuid-param.pipe';
@@ -53,6 +55,15 @@ const rateLimitResponse = createErrorResponse({
   },
 });
 
+const unauthorizedResponse = createErrorResponse({
+  description: 'Returns unauthorized when access token is missing or invalid in auth mode.',
+  example: {
+    statusCode: 401,
+    error: 'Unauthorized',
+    message: 'Access token is required',
+  },
+});
+
 const aiConfigurationResponse = createErrorResponse({
   description: 'Returns internal error for AI configuration/auth failures.',
   example: {
@@ -72,6 +83,7 @@ const aiUnavailableResponse = createErrorResponse({
 });
 
 @ApiTags('AI')
+@ApiBearerAuth('bearerAuth')
 @ApiExtraModels(ErrorResponseDto)
 @UseGuards(AiRateLimitGuard)
 @Controller('ai')
@@ -83,6 +95,7 @@ export class AiController {
     type: SummarizeArticleResponseDto,
   })
   @ApiBadRequestResponse(invalidRequestResponse)
+  @ApiUnauthorizedResponse(unauthorizedResponse)
   @ApiNotFoundResponse(articleNotFoundResponse)
   @ApiTooManyRequestsResponse(rateLimitResponse)
   @ApiInternalServerErrorResponse(aiConfigurationResponse)
@@ -101,6 +114,7 @@ export class AiController {
     type: TranslateArticleResponseDto,
   })
   @ApiBadRequestResponse(invalidRequestResponse)
+  @ApiUnauthorizedResponse(unauthorizedResponse)
   @ApiNotFoundResponse(articleNotFoundResponse)
   @ApiTooManyRequestsResponse(rateLimitResponse)
   @ApiInternalServerErrorResponse(aiConfigurationResponse)
@@ -119,6 +133,7 @@ export class AiController {
     type: AnalyzeArticleResponseDto,
   })
   @ApiBadRequestResponse(invalidRequestResponse)
+  @ApiUnauthorizedResponse(unauthorizedResponse)
   @ApiNotFoundResponse(articleNotFoundResponse)
   @ApiTooManyRequestsResponse(rateLimitResponse)
   @ApiInternalServerErrorResponse(aiConfigurationResponse)
@@ -137,6 +152,7 @@ export class AiController {
     type: GenerateResponseDto,
   })
   @ApiBadRequestResponse(invalidRequestResponse)
+  @ApiUnauthorizedResponse(unauthorizedResponse)
   @ApiTooManyRequestsResponse(rateLimitResponse)
   @ApiInternalServerErrorResponse(aiConfigurationResponse)
   @ApiServiceUnavailableResponse(aiUnavailableResponse)
@@ -150,6 +166,7 @@ export class AiController {
     description: 'Returns in-memory AI usage metrics since service startup.',
     type: AiUsageResponseDto,
   })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
   @ApiTooManyRequestsResponse(rateLimitResponse)
   @Get('usage')
   getUsage(): AiUsageResponseDto {

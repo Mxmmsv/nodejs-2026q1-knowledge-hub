@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiExtraModels,
@@ -22,6 +23,7 @@ import { UserService } from './user.service';
 import { toUserResponse } from './utils/to-user-response';
 
 @ApiTags('Users')
+@ApiBearerAuth('bearerAuth')
 @ApiExtraModels(ErrorResponseDto)
 @Controller('user')
 export class UserController {

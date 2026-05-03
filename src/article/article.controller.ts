@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiExtraModels,
@@ -21,6 +22,7 @@ import { UserRole } from '../common/enums/user-role.enum';
 import { toArticleResponse } from './utils/to-article-response';
 
 @ApiTags('Articles')
+@ApiBearerAuth('bearerAuth')
 @ApiExtraModels(ErrorResponseDto)
 @Controller('article')
 export class ArticleController {

@@ -143,6 +143,7 @@ npm start
 ```
 
 The API is available on `http://localhost:4000`; Swagger is available at `http://localhost:4000/doc`.
+In auth mode, use Swagger's **Authorize** button and paste only the `accessToken` value returned by `POST /auth/login`.
 
 Seed sample users and articles if the database is empty:
 
