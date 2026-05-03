@@ -109,6 +109,7 @@ describe('AiService', () => {
     );
     expect(geminiService.generateContent).not.toHaveBeenCalled();
     expect(usageService.recordCacheHit).toHaveBeenCalled();
+    expect(usageService.recordRequest).toHaveBeenCalledWith(expect.any(String), 0);
   });
 
   it('translates articles with structured parser fallback', async () => {

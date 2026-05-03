@@ -42,6 +42,7 @@ export class AiService {
 
     if (cachedResponse) {
       this.usageService.recordCacheHit();
+      this.usageService.recordRequest(AiEndpoint.SUMMARIZE_ARTICLE, 0);
       return cachedResponse;
     }
 
@@ -72,6 +73,7 @@ export class AiService {
 
     if (cachedResponse) {
       this.usageService.recordCacheHit();
+      this.usageService.recordRequest(AiEndpoint.TRANSLATE_ARTICLE, 0);
       return cachedResponse;
     }
 
