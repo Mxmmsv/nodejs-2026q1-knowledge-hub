@@ -33,7 +33,8 @@ async function bootstrap() {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Paste the accessToken value returned by POST /auth/login.',
+        description:
+          'Paste the application accessToken value returned by POST /auth/login. Do not use GEMINI_API_KEY here.',
       },
       'bearerAuth',
     )

@@ -143,7 +143,7 @@ npm start
 ```
 
 The API is available on `http://localhost:4000`; Swagger is available at `http://localhost:4000/doc`.
-In auth mode, use Swagger's **Authorize** button and paste only the `accessToken` value returned by `POST /auth/login`.
+In auth mode, use Swagger's **Authorize** button for protected Knowledge Hub CRUD endpoints and paste only the `accessToken` value returned by `POST /auth/login`.
 
 Seed sample users and articles if the database is empty:
 
@@ -153,7 +153,9 @@ npx prisma migrate reset --force
 
 ### AI Endpoints
 
-If `TEST_MODE=auth` is enabled, get a bearer token first:
+Gemini API keys are server-side only. Do not paste `GEMINI_API_KEY` into Swagger authorization fields.
+
+AI endpoints are rate-limited and can be called from Swagger without an application JWT. If `TEST_MODE=auth` is enabled and you need to create an article first, get a bearer token for the protected article CRUD endpoint:
 
 ```bash
 curl -X POST http://localhost:4000/auth/login \
