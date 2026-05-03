@@ -1,4 +1,6 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { createServer, Server } from 'http';
+import { AddressInfo } from 'net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppErrorMessages } from '../../common/errors/app-error-messages';
 import { GeminiService } from './gemini.service';
@@ -130,6 +132,33 @@ describe('GeminiService', () => {
       GeminiService.name,
       expect.objectContaining({ statusCode: 429 }),
     );
+  });
+
+  it('falls back to node http client when fetch transport fails', async () => {
+    const server = await new Promise<Server>((resolve) => {
+      const httpServer = createServer((_request, response) => {
+        response.writeHead(200, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Fallback OK' }] } }] }));
+      });
+
+      httpServer.listen(0, '127.0.0.1', () => resolve(httpServer));
+    });
+    const address = server.address() as AddressInfo;
+
+    process.env.GEMINI_API_BASE_URL = `http://127.0.0.1:${address.port}`;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Promise.reject(new Error('fetch unavailable'))),
+    );
+
+    try {
+      await expect(service.generateContent('Prompt')).resolves.toEqual({
+        text: 'Fallback OK',
+        usage: undefined,
+      });
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it('maps network failures to service unavailable after retries', async () => {

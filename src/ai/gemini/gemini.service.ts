@@ -1,4 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { request as httpRequest } from 'http';
+import { request as httpsRequest } from 'https';
 import { AppErrorMessages } from '../../common/errors/app-error-messages';
 import { AppLoggerService } from '../../common/logger';
 import { getGeminiApiBaseUrl, getGeminiApiKey, getGeminiModel } from '../ai.config';
@@ -7,6 +9,12 @@ import { GeminiGenerateResponse, GeminiGenerateResult, GeminiUsageMetadata } fro
 const maxRetries = 3;
 const requestTimeoutMs = 30_000;
 const retryBaseDelayMs = 100;
+
+interface GeminiHttpResponse {
+  body: string;
+  ok: boolean;
+  status: number;
+}
 
 const sleep = (delayMs: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, delayMs));
 
@@ -44,27 +52,10 @@ export class GeminiService {
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+      const body = this.createRequestBody(prompt);
 
       try {
-        const response = await fetch(this.getGenerateContentUrl(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey,
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: prompt }],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.2,
-            },
-          }),
-          signal: controller.signal,
-        });
+        const response = await this.sendRequest(body, apiKey, controller.signal);
 
         clearTimeout(timeout);
 
@@ -73,7 +64,7 @@ export class GeminiService {
           continue;
         }
 
-        const errorBody = response.ok ? '' : await response.text().catch(() => '');
+        const errorBody = response.ok ? '' : response.body;
 
         if (isGeminiAuthError(response.status, errorBody)) {
           throw new HttpException(AppErrorMessages.AI_PROVIDER_AUTH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -87,7 +78,7 @@ export class GeminiService {
           throw new HttpException(AppErrorMessages.AI_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE);
         }
 
-        return this.parseResponse((await response.json()) as GeminiGenerateResponse);
+        return this.parseResponse(JSON.parse(response.body) as GeminiGenerateResponse);
       } catch (error) {
         clearTimeout(timeout);
 
@@ -112,6 +103,93 @@ export class GeminiService {
 
   private getGenerateContentUrl(): string {
     return `${getGeminiApiBaseUrl()}/v1beta/models/${encodeURIComponent(getGeminiModel())}:generateContent`;
+  }
+
+  private createRequestBody(prompt: string): string {
+    return JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+      },
+    });
+  }
+
+  private async sendRequest(body: string, apiKey: string, signal: AbortSignal): Promise<GeminiHttpResponse> {
+    try {
+      return await this.sendFetchRequest(body, apiKey, signal);
+    } catch (error) {
+      this.logger.warn('Gemini fetch transport failed, retrying with node http client', GeminiService.name, {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return this.sendNodeHttpRequest(body, apiKey);
+    }
+  }
+
+  private async sendFetchRequest(body: string, apiKey: string, signal: AbortSignal): Promise<GeminiHttpResponse> {
+    const response = await fetch(this.getGenerateContentUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body,
+      signal,
+    });
+
+    return {
+      body: await response.text(),
+      ok: response.ok,
+      status: response.status,
+    };
+  }
+
+  private sendNodeHttpRequest(body: string, apiKey: string): Promise<GeminiHttpResponse> {
+    const url = new URL(this.getGenerateContentUrl());
+    const request = url.protocol === 'http:' ? httpRequest : httpsRequest;
+
+    return new Promise((resolve, reject) => {
+      const clientRequest = request(
+        url,
+        {
+          family: 4,
+          headers: {
+            'Content-Length': Buffer.byteLength(body),
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          method: 'POST',
+          timeout: requestTimeoutMs,
+        },
+        (response) => {
+          const chunks: Buffer[] = [];
+
+          response.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
+          });
+          response.on('end', () => {
+            const status = response.statusCode ?? 0;
+
+            resolve({
+              body: Buffer.concat(chunks).toString('utf8'),
+              ok: status >= 200 && status < 300,
+              status,
+            });
+          });
+        },
+      );
+
+      clientRequest.on('error', reject);
+      clientRequest.on('timeout', () => {
+        clientRequest.destroy(new Error('Gemini request timed out'));
+      });
+      clientRequest.write(body);
+      clientRequest.end();
+    });
   }
 
   private shouldRetry(statusCode: number): boolean {
