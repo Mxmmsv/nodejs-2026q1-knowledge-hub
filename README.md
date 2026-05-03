@@ -33,6 +33,7 @@ docker compose up --build
 ```
 
 Docker Compose starts PostgreSQL and the API. The Docker image generates Prisma Client during build.
+On container startup, the API applies Prisma migrations and seeds demo users, categories, articles, tags, and comments unless `SEED_DATABASE=false`.
 
 After startup, the API is available on `http://localhost:4000` and Swagger is available on `http://localhost:4000/doc`.
 
@@ -45,6 +46,7 @@ docker compose up --build
 ```
 
 The Docker image runs `npx prisma generate` during build, before compiling the API.
+The app container runs `npx prisma migrate deploy` and an idempotent seed step before starting the API.
 
 Start the project with Adminer enabled:
 
@@ -149,6 +151,19 @@ Seed sample users and articles if the database is empty:
 
 ```bash
 npx prisma migrate reset --force
+```
+
+Seeded demo login for auth mode:
+
+```text
+login: seed_admin
+password: SeedPass123!
+```
+
+Useful seeded article id for AI testing:
+
+```text
+88888888-8888-4888-8888-888888888888
 ```
 
 ### AI Endpoints
