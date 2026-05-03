@@ -10,6 +10,14 @@ const retryBaseDelayMs = 100;
 
 const sleep = (delayMs: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, delayMs));
 
+const isGeminiAuthError = (statusCode: number, errorBody: string): boolean => {
+  if (statusCode === HttpStatus.UNAUTHORIZED || statusCode === HttpStatus.FORBIDDEN) {
+    return true;
+  }
+
+  return /api key|api_key|apikey|permission_denied|unauthenticated|forbidden/i.test(errorBody);
+};
+
 const toTokenUsage = (usageMetadata?: GeminiUsageMetadata) => {
   if (!usageMetadata) {
     return undefined;
@@ -65,7 +73,9 @@ export class GeminiService {
           continue;
         }
 
-        if (response.status === HttpStatus.UNAUTHORIZED || response.status === HttpStatus.FORBIDDEN) {
+        const errorBody = response.ok ? '' : await response.text().catch(() => '');
+
+        if (isGeminiAuthError(response.status, errorBody)) {
           throw new HttpException(AppErrorMessages.AI_PROVIDER_AUTH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
         }
 

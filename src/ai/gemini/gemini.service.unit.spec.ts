@@ -8,6 +8,7 @@ const createFetchResponse = (status: number, body: Record<string, unknown> = {})
     ok: status >= 200 && status < 300,
     status,
     json: vi.fn(async () => body),
+    text: vi.fn(async () => JSON.stringify(body)),
   }) as unknown as Response;
 
 describe('GeminiService', () => {
@@ -87,6 +88,24 @@ describe('GeminiService', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => createFetchResponse(403)),
+    );
+
+    await expect(service.generateContent('Prompt')).rejects.toThrow(
+      new HttpException(AppErrorMessages.AI_PROVIDER_AUTH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR),
+    );
+  });
+
+  it('maps invalid API key error bodies to safe internal errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        createFetchResponse(400, {
+          error: {
+            status: 'INVALID_ARGUMENT',
+            message: 'API key not valid. Please pass a valid API key.',
+          },
+        }),
+      ),
     );
 
     await expect(service.generateContent('Prompt')).rejects.toThrow(
