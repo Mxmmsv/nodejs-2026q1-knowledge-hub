@@ -5,6 +5,7 @@ import { UserRole } from './enums/user-role.enum';
 import { CreateArticleDto, FindArticlesQueryDto, UpdateArticleDto } from '../article/dto';
 import { LoginDto, SignupDto } from '../auth/dto';
 import { AnalyzeArticleDto, GenerateDto, SummarizeArticleDto, TranslateArticleDto } from '../ai/dto';
+import { RagChatRequestDto, RagSearchRequestDto, ReindexRequestDto } from '../ai/rag/dto';
 import { CreateCategoryDto, UpdateCategoryDto } from '../category/dto';
 import { CreateCommentDto, FindCommentsQueryDto } from '../comment/dto';
 import { CreateUserDto, UpdateUserDto } from '../user/dto';
@@ -101,5 +102,31 @@ describe('DTO validation', () => {
     await expectInvalid(toDto(GenerateDto, {}));
     await expectInvalid(toDto(GenerateDto, { prompt: 'Hi', sessionId: 'bad-id' }));
     await expectValid(toDto(GenerateDto, { prompt: 'Hi' }));
+  });
+
+  it('validates RAG DTOs and defaults', async () => {
+    await expectValid(toDto(ReindexRequestDto, {}));
+    await expectInvalid(toDto(ReindexRequestDto, { articleIds: ['bad-id'] }));
+    await expectValid(
+      toDto(ReindexRequestDto, { articleIds: ['11111111-1111-4111-8111-111111111111'], onlyPublished: false }),
+    );
+
+    await expectInvalid(toDto(RagSearchRequestDto, {}));
+    await expectInvalid(toDto(RagSearchRequestDto, { query: '', limit: 5 }));
+    await expectInvalid(toDto(RagSearchRequestDto, { query: 'Node', limit: 21 }));
+    await expectInvalid(toDto(RagSearchRequestDto, { query: 'Node', articleStatus: 'private' as never }));
+    await expectValid(
+      toDto(RagSearchRequestDto, {
+        query: 'Node',
+        limit: 5,
+        articleStatus: ArticleStatus.PUBLISHED,
+        categoryId: '11111111-1111-4111-8111-111111111111',
+        tags: ['node'],
+      }),
+    );
+
+    await expectInvalid(toDto(RagChatRequestDto, {}));
+    await expectInvalid(toDto(RagChatRequestDto, { question: '', conversationId: 'bad-id' }));
+    await expectValid(toDto(RagChatRequestDto, { question: 'What is indexed?' }));
   });
 });
