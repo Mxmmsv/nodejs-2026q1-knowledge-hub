@@ -3,8 +3,14 @@ import { request as httpRequest } from 'http';
 import { request as httpsRequest } from 'https';
 import { AppErrorMessages } from '../../common/errors/app-error-messages';
 import { AppLoggerService } from '../../common/logger';
-import { getGeminiApiBaseUrl, getGeminiApiKey, getGeminiModel } from '../ai.config';
-import { GeminiGenerateResponse, GeminiGenerateResult, GeminiUsageMetadata } from './gemini.types';
+import { getGeminiApiBaseUrl, getGeminiApiKey, getGeminiEmbeddingModel, getGeminiModel } from '../ai.config';
+import {
+  GeminiEmbeddingResponse,
+  GeminiEmbeddingTaskType,
+  GeminiGenerateResponse,
+  GeminiGenerateResult,
+  GeminiUsageMetadata,
+} from './gemini.types';
 
 const maxRetries = 3;
 const requestTimeoutMs = 30_000;
@@ -43,6 +49,22 @@ export class GeminiService {
   constructor(private readonly logger: AppLoggerService) {}
 
   async generateContent(prompt: string): Promise<GeminiGenerateResult> {
+    return this.executeGeminiRequest<GeminiGenerateResult>(
+      this.getGenerateContentUrl(),
+      this.createGenerateRequestBody(prompt),
+      (body) => this.parseGenerateResponse(JSON.parse(body) as GeminiGenerateResponse),
+    );
+  }
+
+  async embedContent(text: string, taskType?: GeminiEmbeddingTaskType): Promise<number[]> {
+    return this.executeGeminiRequest<number[]>(
+      this.getEmbedContentUrl(),
+      this.createEmbedRequestBody(text, taskType),
+      (body) => this.parseEmbeddingResponse(JSON.parse(body) as GeminiEmbeddingResponse),
+    );
+  }
+
+  private async executeGeminiRequest<T>(url: string, body: string, parseBody: (body: string) => T): Promise<T> {
     const apiKey = getGeminiApiKey();
 
     if (!apiKey) {
@@ -52,10 +74,9 @@ export class GeminiService {
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
-      const body = this.createRequestBody(prompt);
 
       try {
-        const response = await this.sendRequest(body, apiKey, controller.signal);
+        const response = await this.sendRequest(url, body, apiKey, controller.signal);
 
         clearTimeout(timeout);
 
@@ -78,7 +99,7 @@ export class GeminiService {
           throw new HttpException(AppErrorMessages.AI_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE);
         }
 
-        return this.parseResponse(JSON.parse(response.body) as GeminiGenerateResponse);
+        return parseBody(response.body);
       } catch (error) {
         clearTimeout(timeout);
 
@@ -105,7 +126,11 @@ export class GeminiService {
     return `${getGeminiApiBaseUrl()}/v1beta/models/${encodeURIComponent(getGeminiModel())}:generateContent`;
   }
 
-  private createRequestBody(prompt: string): string {
+  private getEmbedContentUrl(): string {
+    return `${getGeminiApiBaseUrl()}/v1beta/models/${encodeURIComponent(getGeminiEmbeddingModel())}:embedContent`;
+  }
+
+  private createGenerateRequestBody(prompt: string): string {
     return JSON.stringify({
       contents: [
         {
@@ -119,19 +144,39 @@ export class GeminiService {
     });
   }
 
-  private async sendRequest(body: string, apiKey: string, signal: AbortSignal): Promise<GeminiHttpResponse> {
+  private createEmbedRequestBody(text: string, taskType?: GeminiEmbeddingTaskType): string {
+    return JSON.stringify({
+      model: `models/${getGeminiEmbeddingModel()}`,
+      content: {
+        parts: [{ text }],
+      },
+      ...(taskType ? { taskType } : {}),
+    });
+  }
+
+  private async sendRequest(
+    url: string,
+    body: string,
+    apiKey: string,
+    signal: AbortSignal,
+  ): Promise<GeminiHttpResponse> {
     try {
-      return await this.sendFetchRequest(body, apiKey, signal);
+      return await this.sendFetchRequest(url, body, apiKey, signal);
     } catch (error) {
       this.logger.warn('Gemini fetch transport failed, retrying with node http client', GeminiService.name, {
         message: error instanceof Error ? error.message : String(error),
       });
-      return this.sendNodeHttpRequest(body, apiKey);
+      return this.sendNodeHttpRequest(url, body, apiKey);
     }
   }
 
-  private async sendFetchRequest(body: string, apiKey: string, signal: AbortSignal): Promise<GeminiHttpResponse> {
-    const response = await fetch(this.getGenerateContentUrl(), {
+  private async sendFetchRequest(
+    url: string,
+    body: string,
+    apiKey: string,
+    signal: AbortSignal,
+  ): Promise<GeminiHttpResponse> {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -148,13 +193,13 @@ export class GeminiService {
     };
   }
 
-  private sendNodeHttpRequest(body: string, apiKey: string): Promise<GeminiHttpResponse> {
-    const url = new URL(this.getGenerateContentUrl());
-    const request = url.protocol === 'http:' ? httpRequest : httpsRequest;
+  private sendNodeHttpRequest(url: string, body: string, apiKey: string): Promise<GeminiHttpResponse> {
+    const requestUrl = new URL(url);
+    const request = requestUrl.protocol === 'http:' ? httpRequest : httpsRequest;
 
     return new Promise((resolve, reject) => {
       const clientRequest = request(
-        url,
+        requestUrl,
         {
           family: 4,
           headers: {
@@ -204,7 +249,7 @@ export class GeminiService {
     await sleep(retryBaseDelayMs * 2 ** attempt);
   }
 
-  private parseResponse(response: GeminiGenerateResponse): GeminiGenerateResult {
+  private parseGenerateResponse(response: GeminiGenerateResponse): GeminiGenerateResult {
     const text =
       response.candidates
         ?.flatMap((candidate) => candidate.content?.parts ?? [])
@@ -221,5 +266,15 @@ export class GeminiService {
       text,
       usage: toTokenUsage(response.usageMetadata),
     };
+  }
+
+  private parseEmbeddingResponse(response: GeminiEmbeddingResponse): number[] {
+    const values = response.embedding?.values?.filter((value): value is number => Number.isFinite(value));
+
+    if (!values?.length) {
+      throw new HttpException(AppErrorMessages.AI_RESPONSE_EMPTY, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    return values;
   }
 }

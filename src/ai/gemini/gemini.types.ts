@@ -5,6 +5,13 @@ export interface GeminiGenerateResult {
   usage?: AiTokenUsage;
 }
 
+export const GeminiEmbeddingTaskType = {
+  RETRIEVAL_DOCUMENT: 'RETRIEVAL_DOCUMENT',
+  RETRIEVAL_QUERY: 'RETRIEVAL_QUERY',
+} as const;
+
+export type GeminiEmbeddingTaskType = (typeof GeminiEmbeddingTaskType)[keyof typeof GeminiEmbeddingTaskType];
+
 export interface GeminiUsageMetadata {
   promptTokenCount?: number;
   candidatesTokenCount?: number;
@@ -20,4 +27,10 @@ export interface GeminiGenerateResponse {
     };
   }>;
   usageMetadata?: GeminiUsageMetadata;
+}
+
+export interface GeminiEmbeddingResponse {
+  embedding?: {
+    values?: number[];
+  };
 }
