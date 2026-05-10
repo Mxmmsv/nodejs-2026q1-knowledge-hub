@@ -1,0 +1,225 @@
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { request as httpRequest } from 'http';
+import { request as httpsRequest } from 'https';
+import { AppErrorMessages } from '../../common/errors/app-error-messages';
+import { AppLoggerService } from '../../common/logger';
+import { getGeminiApiBaseUrl, getGeminiApiKey, getGeminiModel } from '../ai.config';
+import { GeminiGenerateResponse, GeminiGenerateResult, GeminiUsageMetadata } from './gemini.types';
+
+const maxRetries = 3;
+const requestTimeoutMs = 30_000;
+const retryBaseDelayMs = 100;
+
+interface GeminiHttpResponse {
+  body: string;
+  ok: boolean;
+  status: number;
+}
+
+const sleep = (delayMs: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, delayMs));
+
+const isGeminiAuthError = (statusCode: number, errorBody: string): boolean => {
+  if (statusCode === HttpStatus.UNAUTHORIZED || statusCode === HttpStatus.FORBIDDEN) {
+    return true;
+  }
+
+  return /api key|api_key|apikey|permission_denied|unauthenticated|forbidden/i.test(errorBody);
+};
+
+const toTokenUsage = (usageMetadata?: GeminiUsageMetadata) => {
+  if (!usageMetadata) {
+    return undefined;
+  }
+
+  return {
+    promptTokens: usageMetadata.promptTokenCount ?? 0,
+    completionTokens: usageMetadata.candidatesTokenCount ?? 0,
+    totalTokens: usageMetadata.totalTokenCount ?? 0,
+  };
+};
+
+@Injectable()
+export class GeminiService {
+  constructor(private readonly logger: AppLoggerService) {}
+
+  async generateContent(prompt: string): Promise<GeminiGenerateResult> {
+    const apiKey = getGeminiApiKey();
+
+    if (!apiKey) {
+      throw new HttpException(AppErrorMessages.AI_CONFIGURATION_INVALID, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+      const body = this.createRequestBody(prompt);
+
+      try {
+        const response = await this.sendRequest(body, apiKey, controller.signal);
+
+        clearTimeout(timeout);
+
+        if (this.shouldRetry(response.status) && attempt < maxRetries) {
+          await this.waitBeforeRetry(attempt, response.status);
+          continue;
+        }
+
+        const errorBody = response.ok ? '' : response.body;
+
+        if (isGeminiAuthError(response.status, errorBody)) {
+          throw new HttpException(AppErrorMessages.AI_PROVIDER_AUTH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        if (response.status === HttpStatus.TOO_MANY_REQUESTS || response.status >= 500) {
+          throw new HttpException(AppErrorMessages.AI_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE);
+        }
+
+        if (!response.ok) {
+          throw new HttpException(AppErrorMessages.AI_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE);
+        }
+
+        return this.parseResponse(JSON.parse(response.body) as GeminiGenerateResponse);
+      } catch (error) {
+        clearTimeout(timeout);
+
+        if (error instanceof HttpException) {
+          throw error;
+        }
+
+        if (attempt < maxRetries) {
+          await this.waitBeforeRetry(attempt);
+          continue;
+        }
+
+        this.logger.warn('Gemini request failed', GeminiService.name, {
+          message: error instanceof Error ? error.message : String(error),
+        });
+        throw new HttpException(AppErrorMessages.AI_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE);
+      }
+    }
+
+    throw new HttpException(AppErrorMessages.AI_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE);
+  }
+
+  private getGenerateContentUrl(): string {
+    return `${getGeminiApiBaseUrl()}/v1beta/models/${encodeURIComponent(getGeminiModel())}:generateContent`;
+  }
+
+  private createRequestBody(prompt: string): string {
+    return JSON.stringify({
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+      },
+    });
+  }
+
+  private async sendRequest(body: string, apiKey: string, signal: AbortSignal): Promise<GeminiHttpResponse> {
+    try {
+      return await this.sendFetchRequest(body, apiKey, signal);
+    } catch (error) {
+      this.logger.warn('Gemini fetch transport failed, retrying with node http client', GeminiService.name, {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return this.sendNodeHttpRequest(body, apiKey);
+    }
+  }
+
+  private async sendFetchRequest(body: string, apiKey: string, signal: AbortSignal): Promise<GeminiHttpResponse> {
+    const response = await fetch(this.getGenerateContentUrl(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body,
+      signal,
+    });
+
+    return {
+      body: await response.text(),
+      ok: response.ok,
+      status: response.status,
+    };
+  }
+
+  private sendNodeHttpRequest(body: string, apiKey: string): Promise<GeminiHttpResponse> {
+    const url = new URL(this.getGenerateContentUrl());
+    const request = url.protocol === 'http:' ? httpRequest : httpsRequest;
+
+    return new Promise((resolve, reject) => {
+      const clientRequest = request(
+        url,
+        {
+          family: 4,
+          headers: {
+            'Content-Length': Buffer.byteLength(body),
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          method: 'POST',
+          timeout: requestTimeoutMs,
+        },
+        (response) => {
+          const chunks: Buffer[] = [];
+
+          response.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
+          });
+          response.on('end', () => {
+            const status = response.statusCode ?? 0;
+
+            resolve({
+              body: Buffer.concat(chunks).toString('utf8'),
+              ok: status >= 200 && status < 300,
+              status,
+            });
+          });
+        },
+      );
+
+      clientRequest.on('error', reject);
+      clientRequest.on('timeout', () => {
+        clientRequest.destroy(new Error('Gemini request timed out'));
+      });
+      clientRequest.write(body);
+      clientRequest.end();
+    });
+  }
+
+  private shouldRetry(statusCode: number): boolean {
+    return statusCode === HttpStatus.TOO_MANY_REQUESTS || statusCode >= 500;
+  }
+
+  private async waitBeforeRetry(attempt: number, statusCode?: number): Promise<void> {
+    this.logger.warn('Retrying Gemini request', GeminiService.name, {
+      attempt: attempt + 1,
+      statusCode,
+    });
+    await sleep(retryBaseDelayMs * 2 ** attempt);
+  }
+
+  private parseResponse(response: GeminiGenerateResponse): GeminiGenerateResult {
+    const text =
+      response.candidates
+        ?.flatMap((candidate) => candidate.content?.parts ?? [])
+        .map((part) => part.text)
+        .filter((partText): partText is string => Boolean(partText?.trim()))
+        .join('\n')
+        .trim() ?? '';
+
+    if (!text) {
+      throw new HttpException(AppErrorMessages.AI_RESPONSE_EMPTY, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    return {
+      text,
+      usage: toTokenUsage(response.usageMetadata),
+    };
+  }
+}

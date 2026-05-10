@@ -28,6 +28,16 @@ async function bootstrap() {
     .setTitle('Knowledge Hub')
     .setDescription('Knowledge hub service for managing articles, categories, and comments')
     .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description:
+          'Paste the application accessToken value returned by POST /auth/login. Do not use GEMINI_API_KEY here.',
+      },
+      'bearerAuth',
+    )
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);

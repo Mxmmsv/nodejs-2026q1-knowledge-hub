@@ -20,6 +20,7 @@ export default defineConfig({
         'src/**/repositories/**',
         'src/common/middleware/**',
         'src/prisma/prisma.service.ts',
+        'src/prisma/run-seed.ts',
       ],
       thresholds: {
         lines: 90,

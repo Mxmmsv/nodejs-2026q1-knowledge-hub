@@ -20,7 +20,9 @@ const defaultErrorLabels: Record<number, string> = {
   [HttpStatus.UNAUTHORIZED]: 'Unauthorized',
   [HttpStatus.FORBIDDEN]: 'Forbidden',
   [HttpStatus.NOT_FOUND]: 'Not Found',
+  [HttpStatus.TOO_MANY_REQUESTS]: 'Too Many Requests',
   [HttpStatus.INTERNAL_SERVER_ERROR]: 'Internal Server Error',
+  [HttpStatus.SERVICE_UNAVAILABLE]: 'Service Unavailable',
 };
 
 const getDefaultErrorLabel = (statusCode: number): string => defaultErrorLabels[statusCode] ?? 'Error';

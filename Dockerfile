@@ -29,4 +29,4 @@ COPY --from=build --chown=node:node /app/dist ./dist
 
 EXPOSE 4000
 
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && if [ \"${SEED_DATABASE:-true}\" = \"true\" ]; then node dist/prisma/run-seed.js; fi && node dist/main.js"]

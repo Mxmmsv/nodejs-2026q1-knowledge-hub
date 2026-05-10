@@ -1,5 +1,17 @@
 const redactedValue = '[REDACTED]';
-const sensitiveKeys = new Set(['password', 'token', 'accesstoken', 'refreshtoken', 'authorization', 'cookie']);
+const sensitiveKeys = new Set([
+  'password',
+  'token',
+  'accesstoken',
+  'refreshtoken',
+  'authorization',
+  'cookie',
+  'apikey',
+  'api_key',
+  'geminiapikey',
+  'gemini_api_key',
+  'x-goog-api-key',
+]);
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return Object.prototype.toString.call(value) === '[object Object]';

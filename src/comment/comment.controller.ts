@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiExtraModels,
@@ -22,6 +23,7 @@ import { CommentService } from './comment.service';
 import { toCommentResponse } from './utils/to-comment-response';
 
 @ApiTags('Comments')
+@ApiBearerAuth('bearerAuth')
 @ApiExtraModels(ErrorResponseDto)
 @Controller('comment')
 export class CommentController {

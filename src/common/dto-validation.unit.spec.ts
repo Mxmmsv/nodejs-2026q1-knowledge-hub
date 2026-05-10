@@ -4,6 +4,7 @@ import { ArticleStatus } from './enums/article-status.enum';
 import { UserRole } from './enums/user-role.enum';
 import { CreateArticleDto, FindArticlesQueryDto, UpdateArticleDto } from '../article/dto';
 import { LoginDto, SignupDto } from '../auth/dto';
+import { AnalyzeArticleDto, GenerateDto, SummarizeArticleDto, TranslateArticleDto } from '../ai/dto';
 import { CreateCategoryDto, UpdateCategoryDto } from '../category/dto';
 import { CreateCommentDto, FindCommentsQueryDto } from '../comment/dto';
 import { CreateUserDto, UpdateUserDto } from '../user/dto';
@@ -87,5 +88,18 @@ describe('DTO validation', () => {
     await expectInvalid(toDto(UpdateUserDto, { role: 'owner' as UserRole }));
     await expectValid(toDto(UpdateUserDto, { oldPassword: 'old', newPassword: 'new' }));
     await expectValid(toDto(UpdateUserDto, { role: UserRole.ADMIN }));
+  });
+
+  it('validates AI DTOs and defaults', async () => {
+    await expectValid(toDto(SummarizeArticleDto, {}));
+    await expectInvalid(toDto(SummarizeArticleDto, { maxLength: 'tiny' as never }));
+    await expectInvalid(toDto(TranslateArticleDto, {}));
+    await expectInvalid(toDto(TranslateArticleDto, { targetLanguage: '' }));
+    await expectValid(toDto(TranslateArticleDto, { targetLanguage: 'Spanish' }));
+    await expectValid(toDto(AnalyzeArticleDto, {}));
+    await expectInvalid(toDto(AnalyzeArticleDto, { task: 'rewrite' as never }));
+    await expectInvalid(toDto(GenerateDto, {}));
+    await expectInvalid(toDto(GenerateDto, { prompt: 'Hi', sessionId: 'bad-id' }));
+    await expectValid(toDto(GenerateDto, { prompt: 'Hi' }));
   });
 });

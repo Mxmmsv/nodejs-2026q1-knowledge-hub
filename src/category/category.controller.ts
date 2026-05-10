@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post, Put } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiBadRequestResponse,
   ApiCreatedResponse,
   ApiExtraModels,
@@ -21,6 +22,7 @@ import { CategoryService } from './category.service';
 import { toCategoryResponse } from './utils/to-category-response';
 
 @ApiTags('Categories')
+@ApiBearerAuth('bearerAuth')
 @ApiExtraModels(ErrorResponseDto)
 @Controller('category')
 export class CategoryController {

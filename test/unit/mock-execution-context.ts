@@ -2,6 +2,7 @@ import { ArgumentsHost, ExecutionContext } from '@nestjs/common';
 
 export const createHttpExecutionContext = (
   request: Record<string, unknown> = {},
+  response: Record<string, unknown> = {},
   handler: (...args: unknown[]) => unknown = () => undefined,
   classRef: new (...args: never[]) => unknown = class {},
 ): ExecutionContext =>
@@ -10,6 +11,7 @@ export const createHttpExecutionContext = (
     getClass: () => classRef,
     switchToHttp: () => ({
       getRequest: () => request,
+      getResponse: () => response,
     }),
   }) as unknown as ExecutionContext;
 
