@@ -19,7 +19,7 @@ cd mxmmsv-nodejs-2026q1-knowledge-hub
 ```
 
 ```bash
-git switch develop
+git switch RAG-vector
 ```
 
 ```bash
