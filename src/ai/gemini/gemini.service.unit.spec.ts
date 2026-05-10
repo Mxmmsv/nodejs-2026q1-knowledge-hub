@@ -162,6 +162,42 @@ describe('GeminiService', () => {
     );
   });
 
+  it('does not map quota messages that mention API keys to auth failures', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        createFetchResponse(429, {
+          error: {
+            status: 'RESOURCE_EXHAUSTED',
+            message: 'Quota exceeded. Check API key plan and billing details.',
+          },
+        }),
+      ),
+    );
+
+    await expect(service.generateContent('Prompt')).rejects.toThrow(
+      new HttpException(AppErrorMessages.AI_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE),
+    );
+  });
+
+  it('maps forbidden permission failures to safe internal errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        createFetchResponse(403, {
+          error: {
+            status: 'PERMISSION_DENIED',
+            message: 'Permission denied',
+          },
+        }),
+      ),
+    );
+
+    await expect(service.generateContent('Prompt')).rejects.toThrow(
+      new HttpException(AppErrorMessages.AI_PROVIDER_AUTH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR),
+    );
+  });
+
   it('retries transient failures and returns the later success', async () => {
     const fetchMock = vi
       .fn()

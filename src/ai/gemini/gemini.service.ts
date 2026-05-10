@@ -59,7 +59,11 @@ const isGeminiAuthError = (statusCode: number, errorBody: string): boolean => {
     return true;
   }
 
-  return /api key|api_key|apikey|permission_denied|unauthenticated|forbidden/i.test(errorBody);
+  if (statusCode !== HttpStatus.BAD_REQUEST) {
+    return false;
+  }
+
+  return /api key|api_key|apikey/i.test(errorBody);
 };
 
 const toTokenUsage = (usageMetadata?: GeminiUsageMetadata) => {
