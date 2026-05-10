@@ -25,6 +25,8 @@ describe('GeminiService', () => {
     process.env.GEMINI_API_BASE_URL = 'https://example.com';
     process.env.GEMINI_MODEL = 'gemini-2.0-flash';
     process.env.GEMINI_EMBEDDING_MODEL = 'text-embedding-004';
+    process.env.GEMINI_RATE_LIMIT_RETRY_BASE_DELAY_MS = '1';
+    process.env.GEMINI_RETRY_BASE_DELAY_MS = '1';
     logger = {
       warn: vi.fn(),
     };
@@ -37,6 +39,8 @@ describe('GeminiService', () => {
     delete process.env.GEMINI_API_BASE_URL;
     delete process.env.GEMINI_MODEL;
     delete process.env.GEMINI_EMBEDDING_MODEL;
+    delete process.env.GEMINI_RATE_LIMIT_RETRY_BASE_DELAY_MS;
+    delete process.env.GEMINI_RETRY_BASE_DELAY_MS;
   });
 
   it('calls Gemini over HTTP and parses text and usage metadata', async () => {
@@ -173,7 +177,7 @@ describe('GeminiService', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       'Retrying Gemini request',
       GeminiService.name,
-      expect.objectContaining({ statusCode: 429 }),
+      expect.objectContaining({ delayMs: 1, statusCode: 429 }),
     );
   });
 

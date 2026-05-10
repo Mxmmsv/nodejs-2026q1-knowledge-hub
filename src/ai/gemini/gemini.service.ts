@@ -14,15 +14,45 @@ import {
 
 const maxRetries = 3;
 const requestTimeoutMs = 30_000;
-const retryBaseDelayMs = 100;
+const retryBaseDelayMs = 500;
+const rateLimitRetryBaseDelayMs = 5_000;
 
 interface GeminiHttpResponse {
   body: string;
   ok: boolean;
+  retryAfterSeconds?: number;
   status: number;
 }
 
 const sleep = (delayMs: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, delayMs));
+
+const parsePositiveInteger = (value: string | undefined, fallback: number): number => {
+  const parsedValue = Number.parseInt(value ?? '', 10);
+
+  return Number.isNaN(parsedValue) || parsedValue <= 0 ? fallback : parsedValue;
+};
+
+const parseRetryAfterSeconds = (value: string | null | string[] | undefined): number | undefined => {
+  const headerValue = Array.isArray(value) ? value[0] : value;
+
+  if (!headerValue) {
+    return undefined;
+  }
+
+  const delaySeconds = Number.parseInt(headerValue, 10);
+
+  if (Number.isFinite(delaySeconds) && delaySeconds > 0) {
+    return delaySeconds;
+  }
+
+  const retryAt = Date.parse(headerValue);
+
+  if (Number.isNaN(retryAt)) {
+    return undefined;
+  }
+
+  return Math.max(1, Math.ceil((retryAt - Date.now()) / 1000));
+};
 
 const isGeminiAuthError = (statusCode: number, errorBody: string): boolean => {
   if (statusCode === HttpStatus.UNAUTHORIZED || statusCode === HttpStatus.FORBIDDEN) {
@@ -81,7 +111,7 @@ export class GeminiService {
         clearTimeout(timeout);
 
         if (this.shouldRetry(response.status) && attempt < maxRetries) {
-          await this.waitBeforeRetry(attempt, response.status);
+          await this.waitBeforeRetry(attempt, response.status, response.retryAfterSeconds);
           continue;
         }
 
@@ -189,6 +219,7 @@ export class GeminiService {
     return {
       body: await response.text(),
       ok: response.ok,
+      retryAfterSeconds: parseRetryAfterSeconds(response.headers?.get?.('retry-after')),
       status: response.status,
     };
   }
@@ -222,6 +253,7 @@ export class GeminiService {
             resolve({
               body: Buffer.concat(chunks).toString('utf8'),
               ok: status >= 200 && status < 300,
+              retryAfterSeconds: parseRetryAfterSeconds(response.headers['retry-after']),
               status,
             });
           });
@@ -241,12 +273,19 @@ export class GeminiService {
     return statusCode === HttpStatus.TOO_MANY_REQUESTS || statusCode >= 500;
   }
 
-  private async waitBeforeRetry(attempt: number, statusCode?: number): Promise<void> {
+  private async waitBeforeRetry(attempt: number, statusCode?: number, retryAfterSeconds?: number): Promise<void> {
+    const baseDelayMs =
+      statusCode === HttpStatus.TOO_MANY_REQUESTS
+        ? parsePositiveInteger(process.env.GEMINI_RATE_LIMIT_RETRY_BASE_DELAY_MS, rateLimitRetryBaseDelayMs)
+        : parsePositiveInteger(process.env.GEMINI_RETRY_BASE_DELAY_MS, retryBaseDelayMs);
+    const delayMs = retryAfterSeconds ? retryAfterSeconds * 1000 : baseDelayMs * 2 ** attempt;
+
     this.logger.warn('Retrying Gemini request', GeminiService.name, {
       attempt: attempt + 1,
+      delayMs,
       statusCode,
     });
-    await sleep(retryBaseDelayMs * 2 ** attempt);
+    await sleep(delayMs);
   }
 
   private parseGenerateResponse(response: GeminiGenerateResponse): GeminiGenerateResult {
