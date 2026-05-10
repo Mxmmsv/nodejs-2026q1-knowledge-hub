@@ -21,7 +21,7 @@ describe('RagChunkerService', () => {
   });
 
   it('creates deterministic chunks with metadata and stable hashes', () => {
-    process.env.RAG_CHUNK_SIZE = '60';
+    process.env.RAG_CHUNK_SIZE = '220';
     process.env.RAG_CHUNK_OVERLAP = '10';
 
     const service = new RagChunkerService();
@@ -42,6 +42,7 @@ describe('RagChunkerService', () => {
         chunkHash: expect.any(String),
       }),
     );
+    expect(firstRun[0].chunk).toContain('Category: 22222222-2222-4222-8222-222222222222');
   });
 
   it('handles overlap values larger than chunk size without looping forever', () => {

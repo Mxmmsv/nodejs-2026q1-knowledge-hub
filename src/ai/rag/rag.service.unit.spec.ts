@@ -30,8 +30,9 @@ describe('RagService', () => {
   };
   let vectorStoreService: {
     getCollectionName: ReturnType<typeof vi.fn>;
-    deleteCollectionIfExists: ReturnType<typeof vi.fn>;
     deleteByArticleId: ReturnType<typeof vi.fn>;
+    getArticleChunkHashes: ReturnType<typeof vi.fn>;
+    getIndexedArticleIds: ReturnType<typeof vi.fn>;
     upsert: ReturnType<typeof vi.fn>;
     search: ReturnType<typeof vi.fn>;
   };
@@ -72,8 +73,9 @@ describe('RagService', () => {
     };
     vectorStoreService = {
       getCollectionName: vi.fn(() => 'knowledge_hub_articles'),
-      deleteCollectionIfExists: vi.fn(),
       deleteByArticleId: vi.fn(async () => true),
+      getArticleChunkHashes: vi.fn(async () => []),
+      getIndexedArticleIds: vi.fn(async () => []),
       upsert: vi.fn(),
       search: vi.fn(async () => [
         {
@@ -120,7 +122,6 @@ describe('RagService', () => {
     });
 
     expect(articleService.findAll).toHaveBeenCalledWith({ status: ArticleStatus.PUBLISHED });
-    expect(vectorStoreService.deleteCollectionIfExists).toHaveBeenCalled();
     expect(geminiService.embedContent).toHaveBeenCalledWith('RAG chunk', 'RETRIEVAL_DOCUMENT');
     expect(vectorStoreService.upsert).toHaveBeenCalledWith([
       expect.objectContaining({
@@ -132,6 +133,27 @@ describe('RagService', () => {
         }),
       }),
     ]);
+  });
+
+  it('skips unchanged articles during incremental reindexing', async () => {
+    vectorStoreService.getArticleChunkHashes.mockResolvedValueOnce(['hash']);
+
+    await expect(service.reindex({})).resolves.toEqual({
+      indexedArticles: 0,
+      indexedChunks: 0,
+      vectorCollection: 'knowledge_hub_articles',
+    });
+
+    expect(geminiService.embedContent).not.toHaveBeenCalled();
+    expect(vectorStoreService.upsert).not.toHaveBeenCalled();
+  });
+
+  it('removes stale indexed articles during full reindexing', async () => {
+    vectorStoreService.getIndexedArticleIds.mockResolvedValueOnce(['stale-article-id']);
+
+    await service.reindex({});
+
+    expect(vectorStoreService.deleteByArticleId).toHaveBeenCalledWith('stale-article-id');
   });
 
   it('runs semantic search with metadata filters', async () => {
@@ -148,16 +170,68 @@ describe('RagService', () => {
           articleId: '11111111-1111-4111-8111-111111111111',
           articleTitle: 'RAG Article',
           chunk: 'RAG chunk',
-          similarity: 0.9123,
+          similarity: expect.any(Number),
         },
       ],
     });
 
     expect(geminiService.embedContent).toHaveBeenCalledWith('What is RAG?', 'RETRIEVAL_QUERY');
-    expect(vectorStoreService.search).toHaveBeenCalledWith([0.1, 0.2, 0.3], 5, {
+    expect(vectorStoreService.search).toHaveBeenCalledWith([0.1, 0.2, 0.3], 20, {
       articleStatus: ArticleStatus.PUBLISHED,
       categoryId: undefined,
       tags: ['rag'],
+    });
+  });
+
+  it('merges lexical candidates with semantic search results and reranks them', async () => {
+    articleService.findAll.mockResolvedValueOnce([
+      articleFixture(),
+      {
+        ...articleFixture(),
+        id: '99999999-9999-4999-8999-999999999999',
+        title: 'Docker Compose Runtime',
+        content: 'Docker Compose health checks and migrations keep services repeatable.',
+        tags: ['docker'],
+      },
+    ]);
+    chunkerService.chunkArticle.mockImplementation((article) => [
+      {
+        articleId: article.id,
+        articleTitle: article.title,
+        articleStatus: article.status,
+        categoryId: article.categoryId,
+        tags: article.tags,
+        articleUpdatedAt: article.updatedAt,
+        chunk: article.content,
+        chunkIndex: 0,
+        chunkHash: `${article.id}:hash`,
+      },
+    ]);
+    vectorStoreService.search.mockResolvedValueOnce([
+      {
+        id: 'semantic-id',
+        score: 0.2,
+        payload: {
+          articleId: '11111111-1111-4111-8111-111111111111',
+          articleTitle: 'RAG Article',
+          articleStatus: ArticleStatus.PUBLISHED,
+          categoryId: '22222222-2222-4222-8222-222222222222',
+          tags: ['rag'],
+          chunk: 'Generic retrieval text',
+          chunkIndex: 0,
+          chunkHash: 'semantic-hash',
+          articleUpdatedAt: 2000,
+        },
+      },
+    ]);
+
+    await expect(service.search({ query: 'Docker Compose health checks', limit: 1 })).resolves.toEqual({
+      results: [
+        expect.objectContaining({
+          articleId: '99999999-9999-4999-8999-999999999999',
+          articleTitle: 'Docker Compose Runtime',
+        }),
+      ],
     });
   });
 

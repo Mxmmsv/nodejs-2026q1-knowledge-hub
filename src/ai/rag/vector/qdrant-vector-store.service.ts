@@ -20,6 +20,26 @@ interface QdrantCountResult {
   count?: number;
 }
 
+interface QdrantCollectionInfo {
+  config?: {
+    params?: {
+      vectors?: {
+        size?: number;
+      };
+    };
+  };
+}
+
+interface QdrantScrollPoint {
+  id: string | number;
+  payload?: RagVectorPayload;
+}
+
+interface QdrantScrollResult {
+  next_page_offset?: unknown;
+  points?: QdrantScrollPoint[];
+}
+
 type QdrantCondition =
   | {
       key: string;
@@ -66,6 +86,14 @@ export class QdrantVectorStoreService {
 
     if (response.status === HttpStatus.NOT_FOUND) {
       await this.createCollection(vectorSize);
+      return;
+    }
+
+    const collection = this.parseJson<QdrantResponse<QdrantCollectionInfo>>(response.body);
+    const existingVectorSize = collection.result?.config?.params?.vectors?.size;
+
+    if (existingVectorSize !== undefined && existingVectorSize !== vectorSize) {
+      await this.recreateCollection(vectorSize);
     }
   }
 
@@ -122,6 +150,18 @@ export class QdrantVectorStoreService {
     return true;
   }
 
+  async getArticleChunkHashes(articleId: string): Promise<string[]> {
+    const payloads = await this.scrollPayloads(this.toArticleIdFilter(articleId));
+
+    return payloads.map((payload) => payload.chunkHash).sort();
+  }
+
+  async getIndexedArticleIds(): Promise<string[]> {
+    const payloads = await this.scrollPayloads();
+
+    return [...new Set(payloads.map((payload) => payload.articleId))].sort();
+  }
+
   async deleteCollectionIfExists(): Promise<void> {
     const response = await this.request('DELETE', `/collections/${this.collectionPath()}`, undefined, [
       HttpStatus.NOT_FOUND,
@@ -150,6 +190,42 @@ export class QdrantVectorStoreService {
     const parsed = this.parseJson<QdrantResponse<QdrantCountResult>>(response.body);
 
     return parsed.result?.count ?? 0;
+  }
+
+  private async scrollPayloads(filter?: QdrantFilter): Promise<RagVectorPayload[]> {
+    const payloads: RagVectorPayload[] = [];
+    let offset: unknown;
+
+    do {
+      const response = await this.request(
+        'POST',
+        `/collections/${this.collectionPath()}/points/scroll`,
+        {
+          filter,
+          limit: 256,
+          offset,
+          with_payload: true,
+          with_vector: false,
+        },
+        [HttpStatus.NOT_FOUND],
+      );
+
+      if (response.status === HttpStatus.NOT_FOUND) {
+        return [];
+      }
+
+      const parsed = this.parseJson<QdrantResponse<QdrantScrollResult>>(response.body);
+      const result = parsed.result;
+
+      payloads.push(
+        ...(result?.points ?? [])
+          .map((point) => point.payload)
+          .filter((payload): payload is RagVectorPayload => Boolean(payload)),
+      );
+      offset = result?.next_page_offset;
+    } while (offset !== undefined && offset !== null);
+
+    return payloads;
   }
 
   private async createCollection(vectorSize: number): Promise<void> {

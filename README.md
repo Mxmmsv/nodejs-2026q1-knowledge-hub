@@ -226,6 +226,8 @@ curl http://localhost:4000/ai/usage \
 
 ### RAG Endpoints
 
+RAG indexing is incremental and idempotent: unchanged article chunks are skipped, changed articles are refreshed, and stale article vectors are removed during a full reindex. Retrieval combines Qdrant semantic search with lexical matching over Knowledge Hub articles, then applies a secondary reranking step before returning chunks to search and chat responses.
+
 Build or refresh the vector index from published articles:
 
 ```bash
@@ -286,7 +288,7 @@ Known limitations:
 - Regional availability can vary for Gemini services.
 - AI usage counters, cache, and generic prompt sessions are in memory and reset after app restart.
 - RAG conversation memory is in memory and resets after app restart.
-- The Qdrant vector index is persistent, but it should be rebuilt after resetting the PostgreSQL database.
+- The Qdrant vector index is persistent; run `POST /ai/rag/index` after resetting PostgreSQL to reconcile vector data with the current article database.
 - AI responses are validated and have safe fallbacks, but model output can still be imperfect.
 
 ## Testing

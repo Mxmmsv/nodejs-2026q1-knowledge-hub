@@ -11,7 +11,8 @@ export class RagChunkerService {
   chunkArticle(article: Article): RagChunk[] {
     const text = this.toDocumentText(article);
     const chunkSize = getRagChunkSize();
-    const chunkOverlap = Math.min(getRagChunkOverlap(), Math.max(0, chunkSize - 1));
+    const configuredOverlap = getRagChunkOverlap();
+    const chunkOverlap = configuredOverlap >= chunkSize ? Math.floor(chunkSize / 4) : configuredOverlap;
     const chunks = this.splitText(text, chunkSize, chunkOverlap);
 
     return chunks.map((chunk, chunkIndex) => ({
@@ -32,6 +33,7 @@ export class RagChunkerService {
       [
         `Title: ${article.title}`,
         `Status: ${article.status}`,
+        `Category: ${article.categoryId ?? 'none'}`,
         `Tags: ${article.tags.join(', ') || 'none'}`,
         `Content: ${article.content}`,
       ].join('\n'),

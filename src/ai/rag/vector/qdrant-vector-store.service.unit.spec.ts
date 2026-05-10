@@ -136,6 +136,53 @@ describe('QdrantVectorStoreService', () => {
     await expect(service.deleteByArticleId('article-id')).resolves.toBe(false);
   });
 
+  it('reads indexed article ids through Qdrant scroll', async () => {
+    const fetchMock = vi.fn(async () =>
+      createFetchResponse(200, {
+        result: {
+          points: [
+            { id: '1', payload: { articleId: 'article-a' } },
+            { id: '2', payload: { articleId: 'article-b' } },
+            { id: '3', payload: { articleId: 'article-a' } },
+          ],
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(service.getIndexedArticleIds()).resolves.toEqual(['article-a', 'article-b']);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://qdrant:6333/collections/test_collection/points/scroll',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          limit: 256,
+          with_payload: true,
+          with_vector: false,
+        }),
+      }),
+    );
+  });
+
+  it('reads indexed chunk hashes for an article through Qdrant scroll', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        createFetchResponse(200, {
+          result: {
+            points: [
+              { id: '1', payload: { articleId: 'article-id', chunkHash: 'hash-b' } },
+              { id: '2', payload: { articleId: 'article-id', chunkHash: 'hash-a' } },
+            ],
+          },
+        }),
+      ),
+    );
+
+    await expect(service.getArticleChunkHashes('article-id')).resolves.toEqual(['hash-a', 'hash-b']);
+  });
+
   it('maps Qdrant network failures to service unavailable', async () => {
     vi.stubGlobal(
       'fetch',
