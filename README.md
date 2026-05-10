@@ -32,7 +32,7 @@ Paste your Gemini API key into `GEMINI_API_KEY` in `.env` before testing AI endp
 docker compose up --build
 ```
 
-Docker Compose starts PostgreSQL and the API. The Docker image generates Prisma Client during build.
+Docker Compose starts PostgreSQL, Qdrant vector database, and the API. The Docker image generates Prisma Client during build.
 On container startup, the API applies Prisma migrations and seeds demo users, categories, articles, tags, and comments unless `SEED_DATABASE=false`.
 
 After startup, the API is available on `http://localhost:4000` and Swagger is available on `http://localhost:4000/doc`.
@@ -47,6 +47,8 @@ docker compose up --build
 
 The Docker image runs `npx prisma generate` during build, before compiling the API.
 The app container runs `npx prisma migrate deploy` and an idempotent seed step before starting the API.
+
+Docker Compose also starts Qdrant as the `vectordb` service on internal URL `http://vectordb:6333`. Qdrant data is stored in the persistent Docker volume `mxmmsv-knowledge-hub-qdrant-data`.
 
 Start the project with Adminer enabled:
 
@@ -102,9 +104,9 @@ Open Prisma Studio:
 npx prisma studio
 ```
 
-## Gemini AI Setup
+## Gemini AI and RAG Setup
 
-The AI endpoints use Google Gemini through the REST API. The default model is `gemini-2.0-flash`, configurable with `GEMINI_MODEL`.
+The AI endpoints use Google Gemini through the REST API. Text generation uses `gemini-2.0-flash`, configurable with `GEMINI_MODEL`. RAG embeddings use `text-embedding-004`, configurable with `GEMINI_EMBEDDING_MODEL`.
 
 Create a Gemini API key:
 
@@ -120,8 +122,15 @@ Required `.env` values:
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_API_BASE_URL=https://generativelanguage.googleapis.com
 GEMINI_MODEL=gemini-2.0-flash
+GEMINI_EMBEDDING_MODEL=text-embedding-004
 AI_RATE_LIMIT_RPM=20
 AI_CACHE_TTL_SEC=300
+RAG_VECTOR_DB_PROVIDER=qdrant
+RAG_VECTOR_DB_URL=http://vectordb:6333
+RAG_VECTOR_COLLECTION=knowledge_hub_articles
+RAG_CHUNK_SIZE=800
+RAG_CHUNK_OVERLAP=200
+RAG_CONVERSATION_MAX_MESSAGES=20
 ```
 
 After cloning:
@@ -170,7 +179,7 @@ Useful seeded article id for AI testing:
 
 Gemini API keys are server-side only. Do not paste `GEMINI_API_KEY` into Swagger authorization fields.
 
-AI endpoints are rate-limited and can be called from Swagger without an application JWT. If `TEST_MODE=auth` is enabled and you need to create an article first, get a bearer token for the protected article CRUD endpoint:
+AI and RAG endpoints are rate-limited and can be called from Swagger without an application JWT. If `TEST_MODE=auth` is enabled and you need to create an article first, get a bearer token for the protected article CRUD endpoint:
 
 ```bash
 curl -X POST http://localhost:4000/auth/login \
@@ -215,12 +224,69 @@ curl http://localhost:4000/ai/usage \
   -H "Authorization: Bearer <accessToken>"
 ```
 
+### RAG Endpoints
+
+Build or refresh the vector index from published articles:
+
+```bash
+curl -X POST http://localhost:4000/ai/rag/index \
+  -H "Content-Type: application/json" \
+  -d "{\"onlyPublished\":true}"
+```
+
+Index selected articles:
+
+```bash
+curl -X POST http://localhost:4000/ai/rag/index \
+  -H "Content-Type: application/json" \
+  -d "{\"articleIds\":[\"88888888-8888-4888-8888-888888888888\"]}"
+```
+
+Run semantic search with optional metadata filters:
+
+```bash
+curl -X POST http://localhost:4000/ai/rag/search \
+  -H "Content-Type: application/json" \
+  -d "{\"query\":\"What does this hub say about Node.js?\",\"limit\":5,\"articleStatus\":\"published\"}"
+```
+
+Ask a grounded RAG question:
+
+```bash
+curl -X POST http://localhost:4000/ai/rag/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"question\":\"Summarize the most relevant Knowledge Hub article about Node.js.\"}"
+```
+
+Continue a RAG conversation by reusing the returned `conversationId`:
+
+```bash
+curl -X POST http://localhost:4000/ai/rag/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"conversationId\":\"<conversationId>\",\"question\":\"Which source supports that answer?\"}"
+```
+
+Inspect RAG conversation history:
+
+```bash
+curl http://localhost:4000/ai/rag/chat/<conversationId>/history
+```
+
+Delete an article from the vector index:
+
+```bash
+curl -X DELETE http://localhost:4000/ai/rag/index/articles/88888888-8888-4888-8888-888888888888
+```
+
 Known limitations:
 
 - Gemini free-tier quotas can reject or delay requests.
 - AI latency depends on Google API availability and article size.
+- RAG indexing time depends on the number and size of articles because chunks are embedded through Gemini.
 - Regional availability can vary for Gemini services.
 - AI usage counters, cache, and generic prompt sessions are in memory and reset after app restart.
+- RAG conversation memory is in memory and resets after app restart.
+- The Qdrant vector index is persistent, but it should be rebuilt after resetting the PostgreSQL database.
 - AI responses are validated and have safe fallbacks, but model output can still be imperfect.
 
 ## Testing
