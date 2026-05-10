@@ -106,7 +106,7 @@ npx prisma studio
 
 ## Gemini AI and RAG Setup
 
-The AI endpoints use Google Gemini through the REST API. Text generation uses `gemini-2.0-flash`, configurable with `GEMINI_MODEL`. RAG embeddings use `text-embedding-004`, configurable with `GEMINI_EMBEDDING_MODEL`.
+The AI endpoints use Google Gemini through the REST API. Text generation uses `gemini-flash-lite-latest`, configurable with `GEMINI_MODEL`. RAG embeddings use `gemini-embedding-001`, configurable with `GEMINI_EMBEDDING_MODEL`.
 
 Create a Gemini API key:
 
@@ -121,8 +121,8 @@ Required `.env` values:
 ```dotenv
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_API_BASE_URL=https://generativelanguage.googleapis.com
-GEMINI_MODEL=gemini-2.0-flash
-GEMINI_EMBEDDING_MODEL=text-embedding-004
+GEMINI_MODEL=gemini-flash-lite-latest
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 AI_RATE_LIMIT_RPM=20
 AI_CACHE_TTL_SEC=300
 RAG_VECTOR_DB_PROVIDER=qdrant
