@@ -3,6 +3,7 @@ import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppErrorMessages } from '../../common/errors/app-error-messages';
+import { GeminiEmbeddingTaskType } from './gemini.types';
 import { GeminiService } from './gemini.service';
 
 const createFetchResponse = (status: number, body: Record<string, unknown> = {}) =>
@@ -23,6 +24,9 @@ describe('GeminiService', () => {
     process.env.GEMINI_API_KEY = 'unit-key';
     process.env.GEMINI_API_BASE_URL = 'https://example.com';
     process.env.GEMINI_MODEL = 'gemini-2.0-flash';
+    process.env.GEMINI_EMBEDDING_MODEL = 'text-embedding-004';
+    process.env.GEMINI_RATE_LIMIT_RETRY_BASE_DELAY_MS = '1';
+    process.env.GEMINI_RETRY_BASE_DELAY_MS = '1';
     logger = {
       warn: vi.fn(),
     };
@@ -34,6 +38,9 @@ describe('GeminiService', () => {
     delete process.env.GEMINI_API_KEY;
     delete process.env.GEMINI_API_BASE_URL;
     delete process.env.GEMINI_MODEL;
+    delete process.env.GEMINI_EMBEDDING_MODEL;
+    delete process.env.GEMINI_RATE_LIMIT_RETRY_BASE_DELAY_MS;
+    delete process.env.GEMINI_RETRY_BASE_DELAY_MS;
   });
 
   it('calls Gemini over HTTP and parses text and usage metadata', async () => {
@@ -86,6 +93,46 @@ describe('GeminiService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('calls Gemini embeddings endpoint and parses vector values', async () => {
+    const fetchMock = vi.fn(async () =>
+      createFetchResponse(200, {
+        embedding: {
+          values: [0.1, 0.2, 0.3],
+        },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(service.embedContent('Search query', GeminiEmbeddingTaskType.RETRIEVAL_QUERY)).resolves.toEqual([
+      0.1, 0.2, 0.3,
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.com/v1beta/models/text-embedding-004:embedContent',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          model: 'models/text-embedding-004',
+          content: {
+            parts: [{ text: 'Search query' }],
+          },
+          taskType: GeminiEmbeddingTaskType.RETRIEVAL_QUERY,
+        }),
+      }),
+    );
+  });
+
+  it('rejects empty embedding responses', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => createFetchResponse(200, { embedding: { values: [] } })),
+    );
+
+    await expect(service.embedContent('Prompt')).rejects.toThrow(
+      new HttpException(AppErrorMessages.AI_RESPONSE_EMPTY, HttpStatus.SERVICE_UNAVAILABLE),
+    );
+  });
+
   it('maps auth failures to safe internal errors', async () => {
     vi.stubGlobal(
       'fetch',
@@ -115,6 +162,42 @@ describe('GeminiService', () => {
     );
   });
 
+  it('does not map quota messages that mention API keys to auth failures', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        createFetchResponse(429, {
+          error: {
+            status: 'RESOURCE_EXHAUSTED',
+            message: 'Quota exceeded. Check API key plan and billing details.',
+          },
+        }),
+      ),
+    );
+
+    await expect(service.generateContent('Prompt')).rejects.toThrow(
+      new HttpException(AppErrorMessages.AI_PROVIDER_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE),
+    );
+  });
+
+  it('maps forbidden permission failures to safe internal errors', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        createFetchResponse(403, {
+          error: {
+            status: 'PERMISSION_DENIED',
+            message: 'Permission denied',
+          },
+        }),
+      ),
+    );
+
+    await expect(service.generateContent('Prompt')).rejects.toThrow(
+      new HttpException(AppErrorMessages.AI_PROVIDER_AUTH_FAILED, HttpStatus.INTERNAL_SERVER_ERROR),
+    );
+  });
+
   it('retries transient failures and returns the later success', async () => {
     const fetchMock = vi
       .fn()
@@ -130,7 +213,7 @@ describe('GeminiService', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       'Retrying Gemini request',
       GeminiService.name,
-      expect.objectContaining({ statusCode: 429 }),
+      expect.objectContaining({ delayMs: 1, statusCode: 429 }),
     );
   });
 
